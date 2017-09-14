@@ -24,3 +24,11 @@ $ make controllers
 ```
 $ make test-e2e
 ```
+
+## Dependency management
+
+This project uses [`dep`](https://github.com/golang/dep).
+
+Cheatsheet:
+- `dep ensure` restores source dependencies
+- `dep ensure --add github.com/<foo>/<bar>` adds a new source dependency
