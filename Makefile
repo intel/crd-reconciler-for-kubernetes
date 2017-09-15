@@ -10,12 +10,15 @@ test:
 docker:
 	docker build -t kube-controllers-go:$(version) .
 
-controllers: stream-prediction
+controllers: stream-prediction example
 
 stream-prediction:
 	(cd cmd/stream-prediction-controller && make)
 
-env-up: controllers env-down
+example:
+	(cd cmd/example-controller && make)
+
+env-up: env-down
 	docker-compose up -d
 	docker-compose ps
 
