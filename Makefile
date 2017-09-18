@@ -4,7 +4,7 @@ all: controllers
 
 version=v0.1.0
 
-test:
+test: lint
 	go test -v ./pkg/...
 
 dep:
@@ -16,10 +16,10 @@ docker:
 controllers: stream-prediction example
 
 stream-prediction:
-	(cd cmd/stream-prediction-controller && make)
+	(cd cmd/stream-prediction-controller && make test)
 
 example:
-	(cd cmd/example-controller && make)
+	(cd cmd/example-controller && make test)
 
 env-up: env-down
 	docker-compose up -d
@@ -33,3 +33,11 @@ dev:
 
 test-e2e: env-up
 	docker-compose exec test go test -v ./test/e2e/...
+
+install_linter:
+	go get github.com/alecthomas/gometalinter
+	gometalinter --install
+
+lint: install_linter
+	gometalinter --config=lint.json ./pkg/...
+	gometalinter --config=lint.json ./test/...
