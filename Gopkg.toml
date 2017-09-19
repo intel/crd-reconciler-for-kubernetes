@@ -36,7 +36,3 @@
 [[constraint]]
 	revision = "2554b0b4622d739c8af9da548e8fe2223176803c"
   name = "k8s.io/client-go"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/emicklei/go-restful-openapi"

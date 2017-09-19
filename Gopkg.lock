@@ -26,12 +26,6 @@
   version = "v2.3.0"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/emicklei/go-restful-openapi"
-  packages = ["."]
-  revision = "e6a79a39747029ce412e7a0e595ced2fd9abc6b7"
-
-[[projects]]
   name = "github.com/emicklei/go-restful-swagger12"
   packages = ["."]
   revision = "dcef7f55730566d41eae5db10e7d6981829720f6"
@@ -204,6 +198,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7e5b3c48d95848487978c14b4f584779aee95d89656b75a688e7926e4194ac25"
+  inputs-digest = "4a5a5c4392d21225156e84bbe7cf39f744ddace7bf700f79149c73690ff48bc4"
   solver-name = "gps-cdcl"
   solver-version = 1
