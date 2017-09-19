@@ -16,10 +16,10 @@ docker:
 controllers: stream-prediction example
 
 stream-prediction:
-	(cd cmd/stream-prediction-controller && make test)
+	(cd cmd/stream-prediction-controller && make)
 
 example:
-	(cd cmd/example-controller && make test)
+	(cd cmd/example-controller && make)
 
 env-up: env-down
 	docker-compose up -d
