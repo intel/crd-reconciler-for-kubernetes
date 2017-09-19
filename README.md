@@ -11,21 +11,59 @@
 
 ## Build
 
-- Requires `docker`
+The build depends on:
 
+* `make`
+* [`docker`](https://docs.docker.com/engine/installation)
+* [`docker-compose`](https://docs.docker.com/compose/install)
+  (end-to-end tests only)
+
+### Quick-start
+
+```shell
+# Build a docker image containing only source dependencies:
+$ make dep
+
+# Run library tests, controller tests and build the controller images:
+$ make
 ```
-$ make controllers
-```
 
-## Test
+### Intermediate container images
 
-### End-to-end tests
+All builds and tests happen inside of a container. Each controller program
+(packages in `./cmd/...`) builds its own result container that can be
+deployed in the local integration environment or a target cluster.
 
-- Requires `docker-compose`
+There are two intermediate container images:
 
-```
-$ make test-e2e
-```
+- `kube-controllers-go-deps` -- contains only source dependencies, separate
+  to speed up local dev iterations
+
+- `kube-controllers-go` -- base image for all controller images, built on
+  top of kube-controllers-go-deps.
+
+### Most useful Make targets
+
+- **`make dep`**: Build a docker image containing only source dependencies
+  and tag it as `kube-controllers-go-dep:$(version)`. This step is a
+  prerequisite to run the other targets, and must be run explicitly.
+
+- **`make docker`**: Build a docker image containing the source repo, running
+  the `./pkg/...` tests in the process.
+
+- **`make controllers`**: Build all controller images (also runs tests.)
+
+- **`make <controller-name>`**: Build the <controller-name> controller image
+  (also runs tests.)
+
+- **`make env-up`** and **`make env-down`**: Bring up/down the integration
+  environment using `docker-compose`. List service status using e.g.
+  `docker-compose ps`.
+
+- **`make dev`**: Drop into bash inside the source repo container in the
+  integration environment. Run after `make env-up`.
+
+- **`make test-e2e`**: Run the end-to-end integration tests.
 
 ## Dependency management
 
@@ -34,3 +72,8 @@ This project uses [`dep`](https://github.com/golang/dep).
 Cheatsheet:
 - `dep ensure` restores source dependencies
 - `dep ensure --add github.com/<foo>/<bar>` adds a new source dependency
+
+After running `dep ensure --add` or manually editing `Gopkg.toml`,
+you must manually re-run `make dep` to update your local
+`kube-controllers-go-dep` image. Otherwise, the other make targets will
+be based off of an outdated set of source dependencies.
