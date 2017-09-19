@@ -23,17 +23,16 @@ import (
 	"fmt"
 
 	apiv1 "k8s.io/api/core/v1"
-	apiextensionsclient "github.com/NervanaSystems/kube-controllers-go/cmd/example-controller/pkg/client/clientset/clientset"
+	crv1 "k8s.io/apiextensions-apiserver/examples/client-go/apis/cr/v1"
+	exampleclient "k8s.io/apiextensions-apiserver/examples/client-go/client"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	crv1 "github.com/NervanaSystems/kube-controllers-go/cmd/example-controller/apis/cr/v1"
-	exampleclient "github.com/NervanaSystems/kube-controllers-go/cmd/example-controller/client"
 	examplecontroller "github.com/NervanaSystems/kube-controllers-go/cmd/example-controller/controller"
 )
 
@@ -47,19 +46,19 @@ func main() {
 		panic(err)
 	}
 
-	apiextensionsclientset, err := apiextensionsclient.NewForConfig(config)
+	clientset, err := apiextensionsclient.NewForConfig(config)
 	if err != nil {
 		panic(err)
 	}
 
 	// initialize custom resource using a CustomResourceDefinition if it does not exist
-	crd, err := exampleclient.CreateCustomResourceDefinition(apiextensionsclientset)
+	crd, err := exampleclient.CreateCustomResourceDefinition(clientset)
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		panic(err)
 	}
 
 	if crd != nil {
-		defer apiextensionsclientset.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(crd.Name, nil)
+		defer clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(crd.Name, nil)
 	}
 
 	// make a new config for our extension's API group, using the first config as a baseline

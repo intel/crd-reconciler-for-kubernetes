@@ -7,6 +7,9 @@ version=v0.1.0
 test:
 	go test -v ./pkg/...
 
+dep:
+	docker build -t kube-controllers-go-dep:$(version) -f Dockerfile.dep .
+
 docker:
 	docker build -t kube-controllers-go:$(version) .
 

@@ -20,3 +20,23 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
+
+[[constraint]]
+  revision = "f30e293246921de7f4ee46bb65b8762b2f890fc4"
+  name = "k8s.io/api"
+
+[[constraint]]
+	revision = "8b0133f28359c1325bd4799207a34fd935367ba2"
+  name = "k8s.io/apiextensions-apiserver"
+
+[[constraint]]
+	revision = "b63e1e4b3f7d0681e9a6e15bd4729d3014049e4e"
+  name = "k8s.io/apimachinery"
+
+[[constraint]]
+	revision = "2554b0b4622d739c8af9da548e8fe2223176803c"
+  name = "k8s.io/client-go"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/emicklei/go-restful-openapi"

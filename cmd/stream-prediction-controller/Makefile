@@ -7,4 +7,4 @@ docker:
 	docker build --no-cache -t stream-prediction-controller:$(version) .
 
 test:
-	go test -v ./...
+	go test -v .

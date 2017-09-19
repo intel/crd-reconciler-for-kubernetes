@@ -23,6 +23,12 @@ jobs:
             - setup_remote_docker
 
             - run:
+                name: Run make dep
+                command: |
+                  set -x
+                  make dep
+
+            - run:
                 name: Run make
                 command: |
                   set -x
