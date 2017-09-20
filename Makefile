@@ -32,6 +32,8 @@ dev:
 	docker-compose exec --privileged test /bin/bash
 
 test-e2e: env-up
+	docker-compose exec test ./resources/wait-port kubernetes 8080
+	docker-compose exec stream-prediction-controller go test -v ./test/...
 	docker-compose exec test go test -v ./test/e2e/...
 
 install_linter:
