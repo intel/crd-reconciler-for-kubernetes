@@ -11,7 +11,7 @@ dep:
 	docker build -t kube-controllers-go-dep:$(version) -f Dockerfile.dep .
 
 docker:
-	docker build -t kube-controllers-go:$(version) .
+	docker build --no-cache -t kube-controllers-go:$(version) .
 
 controllers: stream-prediction example
 
