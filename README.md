@@ -36,11 +36,11 @@ deployed in the local integration environment or a target cluster.
 
 There are two intermediate container images:
 
-- `kube-controllers-go-deps` -- contains only source dependencies, separate
+- `kube-controllers-go-dep` -- contains only source dependencies, separate
   to speed up local dev iterations
 
 - `kube-controllers-go` -- base image for all controller images, built on
-  top of kube-controllers-go-deps.
+  top of kube-controllers-go-dep.
 
 ### Most useful Make targets
 
