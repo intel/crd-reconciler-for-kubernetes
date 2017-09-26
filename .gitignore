@@ -1,4 +1,6 @@
 vendor/
+resources/cache/
+resources/schema/
 *.swp
 *.swo
 *.swn

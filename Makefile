@@ -11,7 +11,7 @@ dep:
 	docker build -t kube-controllers-go-dep:$(version) -f Dockerfile.dep .
 
 docker:
-	docker build --no-cache -t kube-controllers-go:$(version) .
+	docker build -t kube-controllers-go:$(version) .
 
 controllers: stream-prediction example
 
@@ -27,14 +27,19 @@ env-up: env-down
 
 env-down:
 	docker-compose down
+	# resources is mounted as ~/.kube in the test container. This removes the
+	# artifacts created during testing.
+	rm -rf resources/cache
 
 dev:
 	docker-compose exec --privileged test /bin/bash
 
 test-e2e: env-up
 	docker-compose exec test ./resources/wait-port kubernetes 8080
-	docker-compose exec stream-prediction-controller go test -v ./test/...
-	docker-compose exec test go test -v ./test/e2e/...
+	# Run the stream-prediction controller tests in a new container with
+	# the same configuration as the service, inside the docker-compose
+	# environment.
+	docker-compose run stream-prediction-controller make test-e2e
 
 install-linter:
 	go get github.com/alecthomas/gometalinter

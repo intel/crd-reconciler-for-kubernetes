@@ -27,6 +27,7 @@ import (
 	metafuzzer "k8s.io/apimachinery/pkg/apis/meta/fuzzer"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
 )
@@ -52,15 +53,15 @@ func exampleFuzzerFuncs(codecs runtimeserializer.CodecFactory) []interface{} {
 // TestRoundTrip tests that the third-party kinds can be marshaled and unmarshaled correctly to/from JSON
 // without the loss of information. Moreover, deep copy is tested.
 func TestRoundTrip(t *testing.T) {
+	schemaGroupVersion := schema.GroupVersion{Group: GroupName, Version: Version}
 	scheme := runtime.NewScheme()
 	codecs := serializer.NewCodecFactory(scheme)
-
-	AddToScheme(scheme)
+	scheme.AddKnownTypes(schemaGroupVersion, &Example{}, &ExampleList{})
 
 	seed := rand.Int63()
 	fuzzerFuncs := fuzzer.MergeFuzzerFuncs(metafuzzer.Funcs, exampleFuzzerFuncs)
 	fuzzer := fuzzer.FuzzerFor(fuzzerFuncs, rand.NewSource(seed), codecs)
 
-	roundtrip.RoundTripSpecificKindWithoutProtobuf(t, SchemeGroupVersion.WithKind("Example"), scheme, codecs, fuzzer, nil)
-	roundtrip.RoundTripSpecificKindWithoutProtobuf(t, SchemeGroupVersion.WithKind("ExampleList"), scheme, codecs, fuzzer, nil)
+	roundtrip.RoundTripSpecificKindWithoutProtobuf(t, schemaGroupVersion.WithKind("Example"), scheme, codecs, fuzzer, nil)
+	roundtrip.RoundTripSpecificKindWithoutProtobuf(t, schemaGroupVersion.WithKind("ExampleList"), scheme, codecs, fuzzer, nil)
 }

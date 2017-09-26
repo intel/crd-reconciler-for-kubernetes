@@ -20,6 +20,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const GroupName = "aipg.intel.com"
+
+const Version = "v1"
+
+// The kind of the crd
+const StreamPredictionResourceKind = "StreamPrediction"
+
+// The singular form of the crd
+const StreamPredictionResourceSingular = "streamprediction"
+
 // The plural form of the crd
 const StreamPredictionResourcePlural = "streampredictions"
 

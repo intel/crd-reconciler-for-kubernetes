@@ -20,6 +20,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// GroupName is the group name used in this package.
+const GroupName = "cr.client-go.k8s.io"
+
+const Version = "v1"
+
+const ExampleResourceKind = "Example"
+
+const ExampleResourceSingular = "example"
+
 const ExampleResourcePlural = "examples"
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
