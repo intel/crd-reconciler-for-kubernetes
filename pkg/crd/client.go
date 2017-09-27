@@ -16,7 +16,7 @@ import (
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
-const apiRoot = "/api"
+const apiRoot = "/apis"
 
 // NewClient returns a new REST client for the supplied CRD handle.
 func NewClient(config rest.Config, h *Handle) (*rest.RESTClient, error) {
