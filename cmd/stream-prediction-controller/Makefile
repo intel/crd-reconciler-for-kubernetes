@@ -1,5 +1,7 @@
 all: docker
 
+COV_THRESHOLD=80
+
 version=v0.1.0
 
 docker:
@@ -8,13 +10,18 @@ docker:
 
 lint:
 	gometalinter --config=lint.json .
-	# Disabling golint for apis since it conflicts with the deepcopy-gen annotations.
+	# Disabling golint for apis since it conflicts with the deepcopy-gen
+	# annotations.
 	gometalinter --config=lint.json --disable=golint ./apis/...
 	gometalinter --config=lint.json ./test/...
 
 test: lint
-	go test -v .
-	go test -v ./apis/...
+	# TODO(danielscottt): Once there are tests on these packages, enable the
+	# coverage checking.
+	# ../../scripts/test-with-cov.sh . $(COV_THRESHOLD)
+	go test .
+	# ../../scripts/test-with-cov.sh ./apis/cr/v1 $(COV_THRESHOLD)
+	go test ./apis/cr/v1
 
 test-e2e:
 	go test -v ./test/e2e/...

@@ -1,11 +1,20 @@
 .PHONY: docker test
 
+COV_THRESHOLD=80
+
 all: controllers
 
 version=v0.1.0
 
 test: lint
-	go test -v ./pkg/...
+	# TODO(danielscottt): Once there are tests on these packages, enable the
+	# coverage checking.
+	# ./scripts/test-with-cov.sh ./pkg/crd $(COV_THRESHOLD)
+	go test ./pkg/crd
+	# ./scripts/test-with-cov.sh ./pkg/controller $(COV_THRESHOLD)
+	go test ./pkg/controller
+	# ./scripts/test-with-cov.sh ./pkg/util $(COV_THRESHOLD)
+	go test ./pkg/util
 
 dep:
 	docker build -t kube-controllers-go-dep:$(version) -f Dockerfile.dep .

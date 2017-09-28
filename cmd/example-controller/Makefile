@@ -1,5 +1,7 @@
 all: docker
 
+COV_THRESHOLD=80
+
 version=v0.1.0
 
 docker:
@@ -11,5 +13,9 @@ lint:
 	gometalinter --config=lint.json ./apis/...
 
 test: lint
-	go test -v .
-	go test -v ./apis/...
+	# TODO(danielscottt): Once there are tests on these packages, enable the
+	# coverage checking.
+	# ../../scripts/test-with-cov.sh . $(COV_THRESHOLD)
+	go test .
+	# ../../scripts/test-with-cov.sh ./apis/cr/v1 $(COV_THRESHOLD)
+	go test ./apis/cr/v1
