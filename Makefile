@@ -6,7 +6,7 @@ all: controllers
 
 version=v0.1.0
 
-test: lint
+test: lint validate_schemas
 	# TODO(danielscottt): Once there are tests on these packages, enable the
 	# coverage checking.
 	# ./scripts/test-with-cov.sh ./pkg/crd $(COV_THRESHOLD)
@@ -57,3 +57,6 @@ install-linter:
 lint:
 	gometalinter --config=lint.json ./pkg/...
 	gometalinter --config=lint.json ./test/...
+
+validate_schemas:
+	(cd api/crd && make)
