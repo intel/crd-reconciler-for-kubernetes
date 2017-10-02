@@ -1,10 +1,14 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"github.com/golang/glog"
 	"k8s.io/client-go/rest"
 
 	crv1 "github.com/NervanaSystems/kube-controllers-go/cmd/stream-prediction-controller/apis/cr/v1"
+	"github.com/xeipuuv/gojsonschema"
 )
 
 // Implements controller.Hooks interface.
@@ -44,6 +48,34 @@ func (h *streamPredictionHooks) Delete(obj interface{}) {
 	h.process(sp)
 }
 
+func validate(sp *crv1.StreamPrediction) error {
+	schemaLoader := gojsonschema.NewReferenceLoader(
+		"file:///go/src/github.com/NervanaSystems/kube-controllers-go/api/crd/stream-prediction-job-spec.json")
+
+	data, err := json.Marshal(sp)
+	if err != nil {
+		return err
+	}
+
+	documentLoader := gojsonschema.NewStringLoader(string(data))
+	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return err
+	}
+
+	if !result.Valid() {
+		errorOutput := ""
+
+		for _, desc := range result.Errors() {
+			errorOutput = errorOutput + " - " + desc.String() + "\n"
+		}
+
+		return fmt.Errorf(errorOutput)
+	}
+
+	return nil
+}
+
 func (h *streamPredictionHooks) process(sp *crv1.StreamPrediction) error {
 	glog.Infof("Processing crd: %s", sp.Name)
 
@@ -52,6 +84,12 @@ func (h *streamPredictionHooks) process(sp *crv1.StreamPrediction) error {
 	sp.Status = crv1.StreamPredictionStatus{
 		State:   crv1.StreamPredictionProcessed,
 		Message: "Updating stream prediction",
+	}
+
+	if err := validate(sp); err != nil {
+		glog.Infof("Validation error: %v\n", err)
+		// TODO(niklas): When example stream prediction controller pass the spec, enable here.
+		// return err
 	}
 
 	err := h.crdClient.Put().

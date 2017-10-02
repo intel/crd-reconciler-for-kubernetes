@@ -24,6 +24,7 @@ func (c *exampleHooks) Add(obj interface{}) {
 		State:   crv1.ExampleStateProcessed,
 		Message: "Successfully processed by controller",
 	}
+
 	err := c.crdClient.Put().
 		Name(example.ObjectMeta.Name).
 		Namespace(example.ObjectMeta.Namespace).
