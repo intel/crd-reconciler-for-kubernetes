@@ -18,8 +18,22 @@ import (
 
 const apiRoot = "/apis"
 
-// NewClient returns a new REST client for the supplied CRD handle.
-func NewClient(config rest.Config, h *Handle) (*rest.RESTClient, error) {
+// Client is used to handle CRD operations.
+type Client interface {
+	Create(crd CustomResource) error
+	Get(namespace string, name string) (CustomResource, error)
+	Update(crd CustomResource) error
+	Delete(namespace string, name string) error
+	RESTClient() *rest.RESTClient
+}
+
+type client struct {
+	restClient *rest.RESTClient
+	handle     *Handle
+}
+
+// NewClient returns a new REST client wrapper for the supplied CRD handle.
+func NewClient(config rest.Config, h *Handle) (Client, error) {
 	scheme := runtime.NewScheme()
 
 	scheme.AddKnownTypes(h.SchemaGroupVersion, h.ResourceType, h.ResourceListType)
@@ -30,15 +44,57 @@ func NewClient(config rest.Config, h *Handle) (*rest.RESTClient, error) {
 	config.ContentType = runtime.ContentTypeJSON
 	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: serializer.NewCodecFactory(scheme)}
 
-	client, err := rest.RESTClientFor(&config)
+	restClient, err := rest.RESTClientFor(&config)
 	if err != nil {
 		return nil, err
 	}
 
-	return client, nil
+	return &client{restClient, h}, nil
 }
 
-// WriteDefinition creates the supplied CRD to the Kubernetes API server
+func (c *client) RESTClient() *rest.RESTClient {
+	return c.restClient
+}
+
+// Create creates the supplied CRD.
+func (c *client) Create(crd CustomResource) error {
+	return c.restClient.Post().
+		Namespace(crd.Namespace()).
+		Resource(c.handle.Plural).
+		Name(crd.Name()).
+		Body(crd).
+		Do().
+		Error()
+}
+
+// Get retrieves the CRD from the Kubernetes API server.
+func (c *client) Get(namespace string, name string) (CustomResource, error) {
+	// TODO(CD): Complete method body
+	panic("crd.Client -- Get method is not implemented")
+}
+
+// Update updates the CRD on the Kubernetes API server.
+func (c *client) Update(crd CustomResource) error {
+	return c.restClient.Put().
+		Namespace(crd.Namespace()).
+		Resource(c.handle.Plural).
+		Name(crd.Name()).
+		Body(crd).
+		Do().
+		Error()
+}
+
+// Delete deletes the CRD from the Kubernetes API server.
+func (c *client) Delete(namespace string, name string) error {
+	return c.restClient.Delete().
+		Namespace(namespace).
+		Resource(c.handle.Plural).
+		Name(name).
+		Do().
+		Error()
+}
+
+// WriteDefinition writes the supplied CRD to the Kubernetes API server
 // using the supplied client set.
 func WriteDefinition(clientset apiextensionsclient.Interface, h *Handle) error {
 	_, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(h.Definition)

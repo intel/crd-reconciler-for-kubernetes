@@ -39,6 +39,14 @@ type Example struct {
 	Status            ExampleStatus `json:"status,omitempty"`
 }
 
+func (e *Example) Name() string {
+	return e.ObjectMeta.Name
+}
+
+func (e *Example) Namespace() string {
+	return e.ObjectMeta.Namespace
+}
+
 type ExampleSpec struct {
 	Foo string `json:"foo"`
 	Bar bool   `json:"bar"`

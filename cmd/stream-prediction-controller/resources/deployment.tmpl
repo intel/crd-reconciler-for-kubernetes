@@ -1,0 +1,95 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: "{{.Spec.StreamDataSpec.StreamName}}"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: "{{.Spec.StreamDataSpec.StreamName}}"
+        type: stream
+        id: "{{.Spec.StreamDataSpec.StreamID}}"
+    spec:
+      volumes:
+        - name: code
+        - name: logs
+        - name: config
+          configMap:
+            name: krypton
+            items:
+            - key: krypton.conf
+              path: krypton.conf
+      imagePullSecrets:
+        - name: dockerhub
+      containers:
+      - name: krypton
+        image: "{{.Spec.KryptonRepoSpec.KryptonImage}}"
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: 1300m
+            memory: 1600Mi
+          requests:
+            cpu: 1100m
+            memory: 1300Mi
+        env:
+        - name: PRESIGNED_TOKEN
+          value: "{{.Spec.SecuritySpec.PresignedToken}}"
+        - name: JWT_TOKEN
+          value: "{{.Spec.SecuritySpec.JWTToken}}"
+        - name: STREAM_ID
+          value: "{{.Spec.StreamDataSpec.StreamID}}"
+        - name: MODEL_PRM
+          value: "{{.Spec.StreamDataSpec.ModelPRM}}"
+        - name: PYTHONPATH
+          value: /code/cust/:/code/
+        volumeMounts:
+        - name: code
+          mountPath: /code/
+        - name: logs
+          mountPath: /var/log/krypton
+        - name: config
+          mountPath: /etc/krypton/
+        ports:
+        - containerPort: 80
+      - name: krypton-sidecar
+        image: "{{.Spec.KryptonRepoSpec.KryptonSidecarImage}}"
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: 700m
+            memory: 900Mi
+          requests:
+            cpu: 600m
+            memory: 800Mi
+        env:
+        - name: STREAM_ID
+          value: "{{.Spec.StreamDataSpec.StreamID}}"
+        - name: NEON_REPO_URL
+          value: "{{.Spec.NeonRepoSpec.RepoURL}}"
+        - name: NEON_COMMIT
+          value: "{{.Spec.NeonRepoSpec.Commit}}"
+        - name: KRYPTON_REPO_URL
+          value: "{{.Spec.KryptonRepoSpec.RepoURL}}"
+        - name: KRYPTON_COMMIT
+          value: "{{.Spec.KryptonRepoSpec.Commit}}"
+        - name: MODEL_PRM
+          value: "{{.Spec.StreamDataSpec.ModelPath}}"
+        - name: DATASET_PATH
+          value: "{{.Spec.StreamDataSpec.DatasetPath}}"
+        - name: EXTRA_FILENAME
+          value: "{{.Spec.StreamDataSpec.ExtraFilename}}"
+        - name: CUST_REPO_URL
+          value: "{{.Spec.StreamDataSpec.CustomCodeURL}}"
+        - name: CUST_COMMIT_ID
+          value: "{{.Spec.StreamDataSpec.CustomCodeURL}}"
+        - name: AWS_PREDICT_LOGS_PATH
+          value: "{{.Spec.StreamDataSpec.AWSPath}}"
+        - name: AWS_DEFAULT_REGION
+          value: "{{.Spec.StreamDataSpec.StreamName}}"
+        volumeMounts:
+        - name: code
+          mountPath: /code/
+        - name: logs
+          mountPath: /var/log/krypton/

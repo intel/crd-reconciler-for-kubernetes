@@ -16,6 +16,7 @@ type Handle struct {
 	Definition         *extv1beta1.CustomResourceDefinition
 	ResourceType       runtime.Object
 	ResourceListType   runtime.Object
+	Plural             string
 }
 
 // New returns a new CRD Handle.
@@ -50,6 +51,7 @@ func New(
 		Definition:         definition,
 		ResourceType:       resourceType,
 		ResourceListType:   resourceListType,
+		Plural:             plural,
 	}
 }
 

@@ -3,23 +3,26 @@ package main
 import (
 	"context"
 	"flag"
-
 	apiv1 "k8s.io/api/core/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	// Uncomment the following line to load the gcp plugin (only required to
-	// authenticate against GKE clusters).
-	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/client-go/kubernetes"
 
 	crv1 "github.com/NervanaSystems/kube-controllers-go/cmd/stream-prediction-controller/apis/cr/v1"
+	"github.com/NervanaSystems/kube-controllers-go/cmd/stream-prediction-controller/hooks"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/controller"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/crd"
+	"github.com/NervanaSystems/kube-controllers-go/pkg/resource"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/util"
 )
 
 func main() {
 	kubeconfig := flag.String("kubeconfig", "", "Path to a kubeconfig file")
 	namespace := flag.String("namespace", apiv1.NamespaceAll, "Namespace to monitor (Default all)")
+	deploymentTemplateFile := flag.String("deploymentFile", "/etc/streampredictions/deployment.tmpl", "Path to a deployment file")
+	serviceTemplateFile := flag.String("serviceFile", "/etc/streampredictions/service.tmpl", "Path to a service file")
+	ingressTemplateFile := flag.String("ingressFile", "/etc/streampredictions/ingress.tmpl", "Path to an ingress file")
+	hpaTemplateFile := flag.String("hpaFile", "/etc/streampredictions/hpa.tmpl", "Path to a hpa file")
 	flag.Set("logtostderr", "true")
 	flag.Parse()
 
@@ -29,6 +32,11 @@ func main() {
 	}
 
 	clientset, err := extclient.NewForConfig(config)
+	if err != nil {
+		panic(err)
+	}
+
+	k8sclientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		panic(err)
 	}
@@ -53,10 +61,23 @@ func main() {
 	crdClient, err := crd.NewClient(*config, crdHandle)
 	if err != nil {
 		panic(err)
+
 	}
 
+	//Create hooks
+	hooks := hooks.NewStreamPredictionHooks(
+		crdClient,
+		// TODO: Get appropriate client interfaces and plural forms from API
+		//       discovery instead.
+		[]resource.Client{
+			resource.NewClient(k8sclientset.ExtensionsV1beta1().RESTClient(), "deployments", *deploymentTemplateFile),
+			resource.NewClient(k8sclientset.CoreV1().RESTClient(), "services", *serviceTemplateFile),
+			resource.NewClient(k8sclientset.ExtensionsV1beta1().RESTClient(), "ingresses", *ingressTemplateFile),
+			resource.NewClient(k8sclientset.AutoscalingV1().RESTClient(), "horizontalpodautoscalers", *hpaTemplateFile),
+		})
+
 	// Start a controller for instances of our custom resource.
-	controller := controller.New(crdHandle, &streamPredictionHooks{crdClient}, crdClient)
+	controller := controller.New(crdHandle, hooks, crdClient.RESTClient())
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()

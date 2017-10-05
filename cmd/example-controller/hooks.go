@@ -3,14 +3,13 @@ package main
 import (
 	"fmt"
 
-	"k8s.io/client-go/rest"
-
 	crv1 "github.com/NervanaSystems/kube-controllers-go/cmd/example-controller/apis/cr/v1"
+	"github.com/NervanaSystems/kube-controllers-go/pkg/crd"
 )
 
 // exampleHooks implements controller.Hooks.
 type exampleHooks struct {
-	crdClient *rest.RESTClient
+	crdClient crd.Client
 }
 
 func (c *exampleHooks) Add(obj interface{}) {
@@ -25,13 +24,7 @@ func (c *exampleHooks) Add(obj interface{}) {
 		Message: "Successfully processed by controller",
 	}
 
-	err := c.crdClient.Put().
-		Name(example.ObjectMeta.Name).
-		Namespace(example.ObjectMeta.Namespace).
-		Resource(crv1.ExampleResourcePlural).
-		Body(exampleCopy).
-		Do().
-		Error()
+	err := c.crdClient.Update(exampleCopy)
 	if err != nil {
 		fmt.Printf("ERROR updating status: %v\n", err)
 	} else {

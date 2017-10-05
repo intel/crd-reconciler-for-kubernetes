@@ -41,10 +41,50 @@ type StreamPrediction struct {
 	Status            StreamPredictionStatus `json:"status,omitempty"`
 }
 
+func (s *StreamPrediction) Name() string {
+	return s.ObjectMeta.Name
+}
+
+func (s *StreamPrediction) Namespace() string {
+	return s.ObjectMeta.Namespace
+}
+
 // StreamPredictionSpec is the spec for the crd.
 type StreamPredictionSpec struct {
-	Foo string `json:"foo"`
-	Bar bool   `json:"bar"`
+	NeonRepoSpec    NeonRepoSpec
+	SecuritySpec    SecuritySpec
+	StreamDataSpec  StreamDataSpec
+	KryptonRepoSpec KryptonRepoSpec
+}
+
+type KryptonRepoSpec struct {
+	RepoURL             string `json:"repoURL"`
+	Commit              string `json:"commit"`
+	KryptonImage        string `json:"kryptonImage"`
+	KryptonSidecarImage string `json:"kryptonSidecarImage"`
+}
+
+type NeonRepoSpec struct {
+	RepoURL string `json:"repoURL"`
+	Commit  string `json:"commit"`
+}
+
+type StreamDataSpec struct {
+	ModelPRM         string `json:"modelPRM"`
+	ModelPath        string `json:"modelPath"`
+	DatasetPath      string `json:"datasetPath"`
+	ExtraFilename    string `json:"extraFilename"`
+	CustomCodeURL    string `json:"customCodeURL"`
+	CustomCommit     string `json:"customCommit"`
+	AWSPath          string `json:"awsPath"`
+	AWSDefaultRegion string `json:"awsDefaultRegion"`
+	StreamID         int    `json:"streamID"`
+	StreamName       string `json:"streamName"`
+}
+
+type SecuritySpec struct {
+	PresignedToken string `json:"presignedToken"`
+	JWTToken       string `json:"jwtToken"`
 }
 
 // StreamPredictionStatus is the status for the crd.
@@ -61,6 +101,8 @@ const (
 	StreamPredictionCreated StreamPredictionState = "Created"
 	// StreamPredictionProcessed is set when the the resource is processed by the controller
 	StreamPredictionProcessed StreamPredictionState = "Processed"
+	// StreamPredictionError is set when there was an error in the deployment
+	StreamPredictionError StreamPredictionState = "Error"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

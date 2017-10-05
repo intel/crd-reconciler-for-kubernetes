@@ -87,7 +87,7 @@ func main() {
 	}
 
 	// Start a controller for instances of our custom resource.
-	controller := controller.New(crdHandle, &exampleHooks{crdClient}, crdClient)
+	controller := controller.New(crdHandle, &exampleHooks{crdClient}, crdClient.RESTClient())
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
@@ -108,8 +108,10 @@ func main() {
 		},
 	}
 
+	// TODO(CD): Replace this rest client usage with the CRD client wrapper
+	//           when the Create method supports returning the result object.
 	var result crv1.Example
-	err = crdClient.Post().
+	err = crdClient.RESTClient().Post().
 		Resource(crv1.ExampleResourcePlural).
 		Namespace(apiv1.NamespaceDefault).
 		Body(example).
@@ -124,7 +126,7 @@ func main() {
 
 	// Poll until Example object is handled by controller and gets status updated
 	// to "Processed"
-	err = waitForExampleInstanceProcessed(crdClient, "example1")
+	err = waitForExampleInstanceProcessed(crdClient.RESTClient(), "example1")
 	if err != nil {
 		panic(err)
 	}
@@ -132,7 +134,7 @@ func main() {
 
 	// Fetch a list of our CRs
 	exampleList := crv1.ExampleList{}
-	err = crdClient.Get().Resource(crv1.ExampleResourcePlural).Do().Into(&exampleList)
+	err = crdClient.RESTClient().Get().Resource(crv1.ExampleResourcePlural).Do().Into(&exampleList)
 	if err != nil {
 		panic(err)
 	}
