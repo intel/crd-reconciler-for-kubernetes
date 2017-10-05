@@ -92,15 +92,15 @@ func TestStreampredictionHooks(t *testing.T) {
 
 	hooks.Add(sp)
 
-	//
-	// Third test, if the second resource fails. The first one should have been
-	// attempted to be created. Both resources should be deleted.
-	//
 	assert.True(t, foo.createCalled)
 	assert.False(t, bar.createCalled)
 	assert.True(t, foo.deleteCalled)
 	assert.True(t, bar.deleteCalled)
 
+	//
+	// Third test, if the second resource fails. The first one should have been
+	// attempted to be created. Both resources should be deleted.
+	//
 	foo = &testResourceClient{createWillFail: false}
 	bar = &testResourceClient{createWillFail: true}
 
