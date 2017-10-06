@@ -48,7 +48,7 @@ func (h *StreamPredictionHooks) Add(obj interface{}) {
 	}
 
 	streamPredict.Status = crv1.StreamPredictionStatus{
-		State:   crv1.StreamPredictionProcessed,
+		State:   crv1.StreamPredictionDeployed,
 		Message: "Deployed Sub-Resources",
 	}
 	if err := h.crdClient.Update(streamPredict); err != nil {

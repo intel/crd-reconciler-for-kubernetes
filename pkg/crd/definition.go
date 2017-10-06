@@ -17,6 +17,7 @@ type Handle struct {
 	ResourceType       runtime.Object
 	ResourceListType   runtime.Object
 	Plural             string
+	SchemaURL          string
 }
 
 // New returns a new CRD Handle.
@@ -29,6 +30,7 @@ func New(
 	singular string,
 	plural string,
 	scope extv1beta1.ResourceScope,
+	schemaURL string,
 ) *Handle {
 	definition := &extv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
@@ -52,6 +54,7 @@ func New(
 		ResourceType:       resourceType,
 		ResourceListType:   resourceListType,
 		Plural:             plural,
+		SchemaURL:          schemaURL,
 	}
 }
 

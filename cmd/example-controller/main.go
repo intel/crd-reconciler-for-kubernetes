@@ -66,6 +66,7 @@ func main() {
 		crv1.ExampleResourceSingular,
 		crv1.ExampleResourcePlural,
 		extv1beta1.NamespaceScoped,
+		"",
 	)
 
 	// Initialize custom resource using a CustomResourceDefinition if it does

@@ -23,6 +23,7 @@ func main() {
 	serviceTemplateFile := flag.String("serviceFile", "/etc/streampredictions/service.tmpl", "Path to a service file")
 	ingressTemplateFile := flag.String("ingressFile", "/etc/streampredictions/ingress.tmpl", "Path to an ingress file")
 	hpaTemplateFile := flag.String("hpaFile", "/etc/streampredictions/hpa.tmpl", "Path to a hpa file")
+	schemaFile := flag.String("schema", "", "Path to a custom resource schema file")
 	flag.Set("logtostderr", "true")
 	flag.Parse()
 
@@ -51,6 +52,7 @@ func main() {
 		crv1.StreamPredictionResourceSingular,
 		crv1.StreamPredictionResourcePlural,
 		extv1beta1.NamespaceScoped,
+		*schemaFile,
 	)
 
 	err = crd.WriteDefinition(clientset, crdHandle)

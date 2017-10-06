@@ -17,6 +17,8 @@ limitations under the License.
 package v1
 
 import (
+	"encoding/json"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -49,19 +51,32 @@ func (s *StreamPrediction) Namespace() string {
 	return s.ObjectMeta.Namespace
 }
 
+func (s *StreamPrediction) JSON() (string, error) {
+	data, err := json.Marshal(s)
+	if err != nil {
+		return "", err
+	}
+
+	return string(data), nil
+}
+
+// StreamPredictionState is the current job state.
+type StreamPredictionState string
+
 // StreamPredictionSpec is the spec for the crd.
 type StreamPredictionSpec struct {
-	NeonRepoSpec    NeonRepoSpec
-	SecuritySpec    SecuritySpec
-	StreamDataSpec  StreamDataSpec
-	KryptonRepoSpec KryptonRepoSpec
+	NeonRepoSpec    NeonRepoSpec          `json:"neonRepoSpec"`
+	SecuritySpec    SecuritySpec          `json:"securitySpec"`
+	StreamDataSpec  StreamDataSpec        `json:"streamDataSpec"`
+	KryptonRepoSpec KryptonRepoSpec       `json:"kryptonRepoSpec"`
+	State           StreamPredictionState `json:"state"`
 }
 
 type KryptonRepoSpec struct {
-	RepoURL             string `json:"repoURL"`
-	Commit              string `json:"commit"`
-	KryptonImage        string `json:"kryptonImage"`
-	KryptonSidecarImage string `json:"kryptonSidecarImage"`
+	RepoURL      string `json:"repoURL"`
+	Commit       string `json:"commit"`
+	Image        string `json:"image"`
+	SidecarImage string `json:"sidecarImage"`
 }
 
 type NeonRepoSpec struct {
@@ -93,15 +108,18 @@ type StreamPredictionStatus struct {
 	Message string                `json:"message,omitempty"`
 }
 
-// StreamPredictionState is the current state
-type StreamPredictionState string
-
 const (
-	// StreamPredictionCreated is set when the the resource is created
-	StreamPredictionCreated StreamPredictionState = "Created"
-	// StreamPredictionProcessed is set when the the resource is processed by the controller
-	StreamPredictionProcessed StreamPredictionState = "Processed"
-	// StreamPredictionError is set when there was an error in the deployment
+	// StreamPredictionDeploying In this states, a job has been created, but its sub-resources are pending.
+	StreamPredictionDeploying StreamPredictionState = "Deploying"
+
+	// StreamPredictionDeployed This is the _ready_ state for a stream prediction job.
+	// In this state, it is ready to respond to queries.
+	StreamPredictionDeployed StreamPredictionState = "Deployed"
+
+	// StreamPredictionCompleted A `Completed` job has been undeployed.  `Completed` is a terminal state.
+	StreamPredictionCompleted StreamPredictionState = "Completed"
+
+	// StreamPredictionError A job is in an `Error` state if an error has caused it to no longer be available to respond to queries.
 	StreamPredictionError StreamPredictionState = "Error"
 )
 

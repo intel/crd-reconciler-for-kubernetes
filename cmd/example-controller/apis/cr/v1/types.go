@@ -17,6 +17,8 @@ limitations under the License.
 package v1
 
 import (
+	"encoding/json"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -45,6 +47,15 @@ func (e *Example) Name() string {
 
 func (e *Example) Namespace() string {
 	return e.ObjectMeta.Namespace
+}
+
+func (e *Example) JSON() (string, error) {
+	data, err := json.Marshal(e)
+	if err != nil {
+		return "", err
+	}
+
+	return string(data), nil
 }
 
 type ExampleSpec struct {

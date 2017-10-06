@@ -11,16 +11,13 @@
     },
     "securitySpec": {
       "type": "object",
-      "description": "",
       "required": ["presignedToken", "jwtToken"],
       "properties": {
         "presignedToken": {
-          "type": "string",
-          "description": ""
+          "type": "string"
         },
         "jwtToken": {
-          "type": "string",
-          "description": ""
+          "type": "string"
         }
       }
     },
@@ -31,8 +28,7 @@
       "properties": {
         "repoURL": {
           "type": "string",
-          "description": "",
-          "format": "uri"
+          "description": "The git url for neon to use in stream prediction"
         },
         "commit": {
           "type": "string",
@@ -47,8 +43,7 @@
       "properties": {
         "repoURL": {
           "type": "string",
-          "description": "The git url for krypton to use in stream prediction",
-          "format": "uri"
+          "description": "The git url for krypton to use in stream prediction"
         },
         "commit": {
           "type": "string",
@@ -66,7 +61,6 @@
     },
     "streamDataSpec": {
       "type": "object",
-      "description": "",
       "required": ["streamID", "streamName"],
       "properties": {
         "streamID": {

@@ -5,4 +5,5 @@ package crd
 type CustomResource interface {
 	Name() string
 	Namespace() string
+	JSON() (string, error)
 }

@@ -24,7 +24,7 @@ spec:
         - name: dockerhub
       containers:
       - name: krypton
-        image: "{{.Spec.KryptonRepoSpec.KryptonImage}}"
+        image: "{{.Spec.KryptonRepoSpec.Image}}"
         imagePullPolicy: Always
         resources:
           limits:
@@ -54,7 +54,7 @@ spec:
         ports:
         - containerPort: 80
       - name: krypton-sidecar
-        image: "{{.Spec.KryptonRepoSpec.KryptonSidecarImage}}"
+        image: "{{.Spec.KryptonRepoSpec.SidecarImage}}"
         imagePullPolicy: Always
         resources:
           limits:

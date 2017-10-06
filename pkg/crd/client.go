@@ -1,15 +1,17 @@
 package crd
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/xeipuuv/gojsonschema"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/util/errors"
+	k8serrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
@@ -24,6 +26,7 @@ type Client interface {
 	Get(namespace string, name string) (CustomResource, error)
 	Update(crd CustomResource) error
 	Delete(namespace string, name string) error
+	Validate(crd CustomResource) error
 	RESTClient() *rest.RESTClient
 }
 
@@ -58,6 +61,12 @@ func (c *client) RESTClient() *rest.RESTClient {
 
 // Create creates the supplied CRD.
 func (c *client) Create(crd CustomResource) error {
+	if c.handle.SchemaURL != "" {
+		if err := c.Validate(crd); err != nil {
+			return err
+		}
+	}
+
 	return c.restClient.Post().
 		Namespace(crd.Namespace()).
 		Resource(c.handle.Plural).
@@ -75,6 +84,12 @@ func (c *client) Get(namespace string, name string) (CustomResource, error) {
 
 // Update updates the CRD on the Kubernetes API server.
 func (c *client) Update(crd CustomResource) error {
+	if c.handle.SchemaURL != "" {
+		if err := c.Validate(crd); err != nil {
+			return err
+		}
+	}
+
 	return c.restClient.Put().
 		Namespace(crd.Namespace()).
 		Resource(c.handle.Plural).
@@ -92,6 +107,39 @@ func (c *client) Delete(namespace string, name string) error {
 		Name(name).
 		Do().
 		Error()
+}
+
+// Validate validates a custom resource against a json schema.
+// Returns nil if object adheres to the schema.
+func (c *client) Validate(cr CustomResource) error {
+	if c.handle.SchemaURL == "" {
+		return fmt.Errorf("Validate called without schema URL set")
+	}
+
+	schemaLoader := gojsonschema.NewReferenceLoader(c.handle.SchemaURL)
+
+	json, err := cr.JSON()
+	if err != nil {
+		return err
+	}
+
+	documentLoader := gojsonschema.NewStringLoader(json)
+	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return err
+	}
+
+	if !result.Valid() {
+		errorOutput := "Invalid JSON: '" + json + "': "
+
+		for _, desc := range result.Errors() {
+			errorOutput = errorOutput + " - " + desc.String() + "\n"
+		}
+
+		return errors.New(errorOutput)
+	}
+
+	return nil
 }
 
 // WriteDefinition writes the supplied CRD to the Kubernetes API server
@@ -126,7 +174,7 @@ func WriteDefinition(clientset apiextensionsclient.Interface, h *Handle) error {
 	if err != nil {
 		deleteErr := DeleteDefinition(clientset, h)
 		if deleteErr != nil {
-			return errors.NewAggregate([]error{err, deleteErr})
+			return k8serrors.NewAggregate([]error{err, deleteErr})
 		}
 		return err
 	}

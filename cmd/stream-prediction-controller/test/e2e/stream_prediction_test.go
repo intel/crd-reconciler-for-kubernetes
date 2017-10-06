@@ -2,6 +2,11 @@ package e2e
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
+	"testing"
+	"time"
+
 	crv1 "github.com/NervanaSystems/kube-controllers-go/cmd/stream-prediction-controller/apis/cr/v1"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/crd"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/util"
@@ -13,10 +18,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"reflect"
-	"strings"
-	"testing"
-	"time"
 )
 
 func TestStreamPrediction(t *testing.T) {
@@ -33,6 +34,7 @@ func TestStreamPrediction(t *testing.T) {
 		crv1.StreamPredictionResourceSingular,
 		crv1.StreamPredictionResourcePlural,
 		extv1beta1.NamespaceScoped,
+		"",
 	)
 
 	crdClient, err := crd.NewClient(*config, crdHandle)
@@ -68,10 +70,10 @@ func TestStreamPrediction(t *testing.T) {
 			StreamName:       streamName,
 		},
 		KryptonRepoSpec: crv1.KryptonRepoSpec{
-			RepoURL:             "git@github.com:NervanaSystems/krypton.git",
-			Commit:              "master",
-			KryptonImage:        "nervana/krypton:master",
-			KryptonSidecarImage: "nervana/krypton-sidecar:master",
+			RepoURL:      "git@github.com:NervanaSystems/krypton.git",
+			Commit:       "master",
+			Image:        "nervana/krypton:master",
+			SidecarImage: "nervana/krypton-sidecar:master",
 		},
 	}
 
@@ -81,7 +83,7 @@ func TestStreamPrediction(t *testing.T) {
 		},
 		Spec: spec,
 		Status: crv1.StreamPredictionStatus{
-			State:   crv1.StreamPredictionCreated,
+			State:   crv1.StreamPredictionDeployed,
 			Message: "Created, not processed",
 		},
 	}
@@ -113,8 +115,8 @@ func TestStreamPrediction(t *testing.T) {
 
 	testSpec(streamPrediction, t, &spec)
 
-	// Wait for the stream predict crd to get created and being processed
-	err = WaitForStreamPredictionInstanceProcessed(crdClient, streamName)
+	// Wait for the stream predict crd to get created and being deployed
+	err = WaitForStreamPredictionInstanceDeloyed(crdClient, streamName)
 	assert.Nil(t, err)
 
 	t.Logf("Processed crd: %s", streamName)
@@ -173,8 +175,8 @@ func testSpec(streamPrediction crv1.StreamPrediction, t *testing.T, spec *crv1.S
 	assert.True(t, reflect.DeepEqual(&streamPrediction.Spec, spec), "Spec is not the same")
 }
 
-// WaitForStreamPredictionInstanceProcessed waits for the stream prediction to be processed.
-func WaitForStreamPredictionInstanceProcessed(crdClient crd.Client, name string) error {
+// WaitForStreamPredictionInstanceDeloyed waits for the stream prediction to be deployed.
+func WaitForStreamPredictionInstanceDeloyed(crdClient crd.Client, name string) error {
 	return wait.Poll(100*time.Millisecond, 10*time.Second, func() (bool, error) {
 		var streamPrediction crv1.StreamPrediction
 		err := crdClient.RESTClient().Get().
@@ -183,7 +185,7 @@ func WaitForStreamPredictionInstanceProcessed(crdClient crd.Client, name string)
 			Name(name).
 			Do().Into(&streamPrediction)
 
-		if err == nil && streamPrediction.Status.State == crv1.StreamPredictionProcessed {
+		if err == nil && streamPrediction.Status.State == crv1.StreamPredictionDeployed {
 			return true, nil
 		}
 
