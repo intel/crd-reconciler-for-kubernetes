@@ -8,7 +8,7 @@ all: controllers
 
 VERSION := $(shell git describe --tags --always --dirty)
 
-test: lint validate_schemas
+test: lint validate-schemas
 	./scripts/test-with-cov.sh ./pkg/... $(COV_THRESHOLD)
 	go test ./pkg/...
 
@@ -67,5 +67,5 @@ install-linter:
 lint:
 	gometalinter --config=lint.json ./pkg/...
 
-validate_schemas:
+validate-schemas:
 	(cd api/crd && make)
