@@ -1,9 +1,11 @@
 all: docker
 
-COV_THRESHOLD=80
-
 VERSION := $(shell git describe --tags --always --dirty)
-IMAGE_NAME="example-controller"
+
+GOOGLE_PROJECT_ID=
+GOOGLE_AUTH=
+IMAGE_NAME=example-controller
+COV_THRESHOLD=80
 
 docker:
 	(cd ../../ && make docker)
@@ -23,3 +25,24 @@ test: lint
 	go test .
 	# ../../scripts/test-with-cov.sh ./apis/cr/v1 $(COV_THRESHOLD)
 	go test ./apis/cr/v1
+
+push-image-preflight:
+ifeq ($(GOOGLE_PROJECT_ID),)
+	$(error GOOGLE_PROJECT_ID must be set)
+endif
+ifeq ($(GOOGLE_AUTH),)
+	$(error GOOGLE_AUTH must be set)
+endif
+	# Setting auth and project config for gcloud SDK.
+	# Running this locally may override your CLI settings.
+	# TODO(CD): Stash the active auth and project and restore them
+	# after pushing.
+	echo "$(GOOGLE_AUTH)" | base64 --decode > /tmp/gcp-key.json
+	gcloud auth activate-service-account --key-file /tmp/gcp-key.json
+	gcloud config set project "$(GOOGLE_PROJECT_ID)"
+
+push-image: push-image-preflight docker
+	@ echo "tagging container"
+	docker tag $(IMAGE_NAME):$(VERSION) gcr.io/$(GOOGLE_PROJECT_ID)/$(IMAGE_NAME):$(VERSION)
+	@ echo "pushing container to gcr.io"
+	gcloud docker -- push gcr.io/$(GOOGLE_PROJECT_ID)/$(IMAGE_NAME):$(VERSION)

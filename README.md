@@ -17,6 +17,8 @@ The build depends on:
 * [`docker`](https://docs.docker.com/engine/installation)
 * [`docker-compose`](https://docs.docker.com/compose/install)
   (end-to-end tests only)
+* [`gcloud`](https://cloud.google.com/sdk/docs/#linux)
+  (we use the Google Cloud SDK to push images to GCR)
 
 ### Quick-start
 

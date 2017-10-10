@@ -1,12 +1,15 @@
 .PHONY: docker test
 
+VERSION := $(shell git describe --tags --always --dirty)
+
+GOOGLE_PROJECT_ID=
+GOOGLE_AUTH=
+IMAGE_NAME=kube-controllers-go
 COV_THRESHOLD=80
 TARGET ?= test
 GODEBUGGER ?= gdb
 
 all: controllers
-
-VERSION := $(shell git describe --tags --always --dirty)
 
 test: lint validate-schemas
 	./scripts/test-with-cov.sh ./pkg/... $(COV_THRESHOLD)
@@ -14,14 +17,14 @@ test: lint validate-schemas
 
 dep:
 	docker build \
-		-t kube-controllers-go-dep:$(VERSION) \
-		-t kube-controllers-go-dep:latest \
+		-t $(IMAGE_NAME)-dep:$(VERSION) \
+		-t $(IMAGE_NAME)-dep:latest \
 		-f Dockerfile.dep .
 
 docker:
 	docker build \
-		-t kube-controllers-go:$(VERSION) \
-		-t kube-controllers-go:latest .
+		-t $(IMAGE_NAME):$(VERSION) \
+		-t $(IMAGE_NAME):latest .
 
 controllers: stream-prediction example
 
@@ -44,7 +47,7 @@ env-down:
 dev:
 	docker-compose exec --privileged $(TARGET) /bin/bash
 
-debug: 
+debug:
 	docker-compose exec --privileged $(TARGET) env GODEBUGGER=$(GODEBUGGER) /go/src/github.com/NervanaSystems/kube-controllers-go/scripts/godebug attach $(TARGET)
 
 create-sp:
@@ -69,3 +72,13 @@ lint:
 
 validate-schemas:
 	(cd api/crd && make)
+
+push-images:
+	@ (cd cmd/example-controller && \
+		make push-image \
+		  GOOGLE_AUTH=$(GOOGLE_AUTH) \
+		  GOOGLE_PROJECT_ID=$(GOOGLE_PROJECT_ID))
+	@ (cd cmd/stream-prediction-controller && \
+		make push-image \
+		  GOOGLE_AUTH=$(GOOGLE_AUTH) \
+		  GOOGLE_PROJECT_ID=$(GOOGLE_PROJECT_ID))
