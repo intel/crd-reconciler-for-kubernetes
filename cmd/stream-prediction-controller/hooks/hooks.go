@@ -12,15 +12,6 @@ import (
 	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 )
 
-var (
-	// gvk unambiguously identifies the stream predicition kind.
-	gvk = schema.GroupVersionKind{
-		Group:   crv1.GroupName,
-		Version: crv1.Version,
-		Kind:    crv1.StreamPredictionResourceKind,
-	}
-)
-
 // StreamPredictionHooks implements controller.Hooks interface
 type StreamPredictionHooks struct {
 	resourceClients []resource.Client
@@ -149,7 +140,7 @@ func (h *StreamPredictionHooks) addResources(streamPredict *crv1.StreamPredictio
 	// Add controller reference.
 	// See https://kubernetes.io/docs/concepts/workloads/controllers/garbage-collection/
 	// for more details on owner references.
-	ownerRef := metav1.NewControllerRef(streamPredict, gvk)
+	ownerRef := metav1.NewControllerRef(streamPredict, crv1.GVK)
 
 	for _, resourceClient := range h.resourceClients {
 		err := resourceClient.Create(streamPredict.Namespace(), struct {

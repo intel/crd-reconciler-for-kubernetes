@@ -14,6 +14,7 @@ import (
 	"github.com/NervanaSystems/kube-controllers-go/cmd/stream-prediction-controller/hooks"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/controller"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/crd"
+	"github.com/NervanaSystems/kube-controllers-go/pkg/garbagecollector"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/resource"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/util"
@@ -69,36 +70,28 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	fsm := states.NewFSM(
-		crv1.Deploying, crv1.Deployed,
-		crv1.Completed, crv1.Error,
-	)
-	fsm.SetAdj(crv1.Deploying, crv1.Error)
-	fsm.SetAdj(crv1.Deploying, crv1.Deployed)
-	fsm.SetAdj(crv1.Deploying, crv1.Completed)
-	fsm.SetAdj(crv1.Deployed, crv1.Error)
-	fsm.SetAdj(crv1.Deployed, crv1.Completed)
+	// TODO: Get appropriate client interfaces and plural forms from API
+	//       discovery instead.
+	resourceClients := []resource.Client{
+		resource.NewClient(k8sclientset.ExtensionsV1beta1().RESTClient(), "deployments", *deploymentTemplateFile),
+		resource.NewClient(k8sclientset.CoreV1().RESTClient(), "services", *serviceTemplateFile),
+		resource.NewClient(k8sclientset.ExtensionsV1beta1().RESTClient(), "ingresses", *ingressTemplateFile),
+		resource.NewClient(k8sclientset.AutoscalingV1().RESTClient(), "horizontalpodautoscalers", *hpaTemplateFile)}
 
 	//Create hooks
 	hooks := hooks.NewStreamPredictionHooks(
 		crdClient,
-		// TODO: Get appropriate client interfaces and plural forms from API
-		//       discovery instead.
-		[]resource.Client{
-			resource.NewClient(k8sclientset.ExtensionsV1beta1().RESTClient(), "deployments", *deploymentTemplateFile),
-			resource.NewClient(k8sclientset.CoreV1().RESTClient(), "services", *serviceTemplateFile),
-			resource.NewClient(k8sclientset.ExtensionsV1beta1().RESTClient(), "ingresses", *ingressTemplateFile),
-			resource.NewClient(k8sclientset.AutoscalingV1().RESTClient(), "horizontalpodautoscalers", *hpaTemplateFile),
-		},
+		resourceClients,
 		crv1.StreamPredictionFSM)
 
 	// Start a controller for instances of our custom resource.
 	controller := controller.New(crdHandle, hooks, crdClient.RESTClient())
+	garbagecollector.Init(*namespace, crv1.GVK, crdClient, resourceClients)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	go controller.Run(ctx, *namespace)
+	go garbagecollector.Run(ctx)
 
 	<-ctx.Done()
 }

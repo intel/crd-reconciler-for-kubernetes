@@ -4,10 +4,15 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/golang/glog"
+	v1beta1 "k8s.io/api/apps/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
 	"github.com/NervanaSystems/kube-controllers-go/pkg/resource/reify"
+	"github.com/golang/glog"
 )
 
 // Client manipulates Kubernetes API resources backed by template files.
@@ -17,6 +22,8 @@ type Client interface {
 	Create(namespace string, templateData interface{}) error
 	// Delete deletes the object
 	Delete(namespace string, name string) error
+	// List lists objects based on group, version and kind.
+	List(namespace string, gvk schema.GroupVersionKind) (result *v1beta1.DeploymentList, err error)
 }
 
 type client struct {
@@ -69,4 +76,21 @@ func (c *client) Delete(namespace string, name string) error {
 	glog.Infof("[DEBUG] delete resource URL: %s", request.URL())
 
 	return request.Do().Error()
+}
+
+func (c *client) List(namespace string, gvk schema.GroupVersionKind) (result *v1beta1.DeploymentList, err error) {
+	selector := fields.Set{
+		"metadata.ownerReferences[0].apiVersion": gvk.GroupVersion().String(),
+		"metadata.ownerReferences[0].kind":       gvk.Kind,
+	}.AsSelector().String()
+	opts := metav1.ListOptions{FieldSelector: selector}
+	result = &v1beta1.DeploymentList{}
+	err = c.restClient.Get().
+		Namespace(namespace).
+		Resource(c.resourcePluralForm).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Do().
+		Into(result)
+
+	return
 }

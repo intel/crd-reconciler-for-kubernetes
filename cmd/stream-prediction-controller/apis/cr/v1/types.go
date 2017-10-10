@@ -36,6 +36,15 @@ const StreamPredictionResourceSingular = "streamprediction"
 // The plural form of the crd
 const StreamPredictionResourcePlural = "streampredictions"
 
+var (
+	// GVK unambiguously identifies the stream predicition kind.
+	GVK = schema.GroupVersionKind{
+		Group:   GroupName,
+		Version: Version,
+		Kind:    StreamPredictionResourceKind,
+	}
+)
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type StreamPrediction struct {
 	metav1.TypeMeta   `json:",inline"`
