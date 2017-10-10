@@ -140,6 +140,8 @@ func main() {
 		panic(err)
 	}
 	fmt.Printf("LIST: %#v\n", exampleList)
+
+	<-ctx.Done()
 }
 
 func waitForExampleInstanceProcessed(crdClient *rest.RESTClient, name string) error {

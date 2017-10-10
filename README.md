@@ -60,10 +60,14 @@ There are two intermediate container images:
   environment using `docker-compose`. List service status using e.g.
   `docker-compose ps`.
 
-- **`make dev`**: Drop into bash inside the source repo container in the
-  integration environment. Run after `make env-up`.
+- **`make dev TARGET=[test|stream-prediction-controller|example-controller...]`**: Drop into bash inside the source repo container in the
+  integration environment. Run after `make env-up`. TARGET defaults to 'test' and can also be set in your SHELL profile
 
 - **`make test-e2e`**: Run the end-to-end integration tests.
+
+- **`make debug TARGET=[test|stream-prediction-controller|example-controller...]`**: Attach to the process running in the TARGET container. See [tutorial](docs/debug.md). TARGET defaults to 'test' and can also be set in your SHELL profile
+
+- **`make create-sp`**: this will create a stream prediction instance with a unique name
 
 ## Dependency management
 
@@ -77,3 +81,4 @@ After running `dep ensure --add` or manually editing `Gopkg.toml`,
 you must manually re-run `make dep` to update your local
 `kube-controllers-go-dep` image. Otherwise, the other make targets will
 be based off of an outdated set of source dependencies.
+

@@ -1,5 +1,5 @@
 {
-    "apiVersion": "foo.bar/v1/v4",
+    "apiVersion": "aipg.intel.com/v1",
     "kind": "StreamPrediction",
     "metadata": {
         "name": "stream-12"

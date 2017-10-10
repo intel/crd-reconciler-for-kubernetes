@@ -1,6 +1,8 @@
 .PHONY: docker test
 
 COV_THRESHOLD=80
+TARGET ?= test
+GODEBUGGER ?= gdb
 
 all: controllers
 
@@ -35,7 +37,16 @@ env-down:
 	rm -rf resources/cache
 
 dev:
-	docker-compose exec --privileged test /bin/bash
+	docker-compose exec --privileged $(TARGET) /bin/bash
+
+debug: 
+	docker-compose exec --privileged $(TARGET) env GODEBUGGER=$(GODEBUGGER) /go/src/github.com/NervanaSystems/kube-controllers-go/scripts/godebug attach $(TARGET)
+
+create-sp:
+	docker-compose exec --privileged $(TARGET) /usr/local/bin/kubectl create -f /go/src/github.com/NervanaSystems/kube-controllers-go/api/crd/examples/stream-prediction-job-valid-1.json
+
+delete-sp:
+	docker-compose exec --privileged $(TARGET) /usr/local/bin/kubectl delete -f /go/src/github.com/NervanaSystems/kube-controllers-go/api/crd/examples/stream-prediction-job-valid-1.json
 
 test-e2e: env-up
 	docker-compose exec test ./resources/wait-port kubernetes 8080
