@@ -26,6 +26,9 @@ test: lint
 	# ../../scripts/test-with-cov.sh ./apis/cr/v1 $(COV_THRESHOLD)
 	go test ./apis/cr/v1
 
+code-generation:
+	/go/bin/deepcopy-gen --output-base=/go/src --input-dirs=github.com/NervanaSystems/kube-controllers-go/cmd/example-controller/apis/cr/v1/...
+
 push-image-preflight:
 ifeq ($(GOOGLE_PROJECT_ID),)
 	$(error GOOGLE_PROJECT_ID must be set)

@@ -2,6 +2,7 @@ FROM kube-controllers-go
 
 WORKDIR /go/src/github.com/NervanaSystems/kube-controllers-go/cmd/stream-prediction-controller
 # -gcflags: disable compiler optimizations and inlining
+RUN make code-generation
 RUN go install -gcflags "-N -l" github.com/NervanaSystems/kube-controllers-go/cmd/stream-prediction-controller
 RUN make test
 CMD /go/bin/stream-prediction-controller

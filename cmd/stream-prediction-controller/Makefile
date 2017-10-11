@@ -37,6 +37,9 @@ test: lint
 test-e2e:
 	go test -v ./test/e2e/...
 
+code-generation:
+	/go/bin/deepcopy-gen --output-base=/go/src --input-dirs=github.com/NervanaSystems/kube-controllers-go/cmd/stream-prediction-controller/apis/cr/v1/...
+
 push-image-preflight:
 ifeq ($(GOOGLE_PROJECT_ID),)
 	$(error GOOGLE_PROJECT_ID must be set)
