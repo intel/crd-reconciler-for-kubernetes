@@ -116,7 +116,7 @@ func TestStreamPrediction(t *testing.T) {
 	testSpec(streamPrediction, t, &spec)
 
 	// Wait for the stream predict crd to get created and being deployed
-	err = WaitForStreamPredictionInstanceDeloyed(crdClient, streamName)
+	err = waitForStreamPredictionInstanceDeployed(crdClient, streamName)
 	assert.Nil(t, err)
 
 	t.Logf("Processed crd: %s", streamName)
@@ -175,9 +175,9 @@ func testSpec(streamPrediction crv1.StreamPrediction, t *testing.T, spec *crv1.S
 	assert.True(t, reflect.DeepEqual(&streamPrediction.Spec, spec), "Spec is not the same")
 }
 
-// WaitForStreamPredictionInstanceDeloyed waits for the stream prediction to be deployed.
-func WaitForStreamPredictionInstanceDeloyed(crdClient crd.Client, name string) error {
-	return wait.Poll(100*time.Millisecond, 10*time.Second, func() (bool, error) {
+// waitForStreamPredictionInstanceDeployed waits for the stream prediction to be deployed.
+func waitForStreamPredictionInstanceDeployed(crdClient crd.Client, name string) error {
+	return wait.Poll(1*time.Second, 10*time.Second, func() (bool, error) {
 		var streamPrediction crv1.StreamPrediction
 		err := crdClient.RESTClient().Get().
 			Resource(crv1.StreamPredictionResourcePlural).

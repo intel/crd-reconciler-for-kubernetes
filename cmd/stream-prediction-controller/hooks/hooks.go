@@ -3,9 +3,21 @@ package hooks
 import (
 	"github.com/golang/glog"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	crv1 "github.com/NervanaSystems/kube-controllers-go/cmd/stream-prediction-controller/apis/cr/v1"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/crd"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/resource"
+)
+
+var (
+	// gvk unambiguously identifies the stream predicition kind.
+	gvk = schema.GroupVersionKind{
+		Group:   crv1.GroupName,
+		Version: crv1.Version,
+		Kind:    crv1.StreamPredictionResourceKind,
+	}
 )
 
 // StreamPredictionHooks implements controller.Hooks interface
@@ -82,8 +94,20 @@ func (h *StreamPredictionHooks) Delete(obj interface{}) {
 }
 
 func (h *StreamPredictionHooks) addResources(streamPredict *crv1.StreamPrediction) error {
+	// Add controller reference.
+	// See https://kubernetes.io/docs/concepts/workloads/controllers/garbage-collection/
+	// for more details on owner references.
+	ownerRef := metav1.NewControllerRef(streamPredict, gvk)
+
 	for _, resourceClient := range h.resourceClients {
-		if err := resourceClient.Create(streamPredict.Namespace(), streamPredict); err != nil {
+		err := resourceClient.Create(streamPredict.Namespace(), struct {
+			*crv1.StreamPrediction
+			metav1.OwnerReference
+		}{
+			streamPredict,
+			*ownerRef,
+		})
+		if err != nil {
 			glog.Errorf("received err: %v while creating object", err)
 			return err
 		}

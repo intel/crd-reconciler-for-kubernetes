@@ -2,6 +2,13 @@ apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
   name: "{{.Spec.StreamDataSpec.StreamName}}"
+  ownerReferences:
+  - apiVersion: {{.APIVersion}}
+    kind: {{.Kind}}
+    name: {{.Name}}
+    uid: {{.UID}}
+    controller: {{.Controller}}
+    blockOwnerDeletion: {{.BlockOwnerDeletion}}
 spec:
   scaleTargetRef:
     kind: Deployment

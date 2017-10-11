@@ -4,6 +4,13 @@ metadata:
   name: "{{.Spec.StreamDataSpec.StreamName}}"
   annotations:
     kubernetes.io/ingress.class: "nginx"
+  ownerReferences:
+  - apiVersion: {{.APIVersion}}
+    kind: {{.Kind}}
+    name: {{.Name}}
+    uid: {{.UID}}
+    controller: {{.Controller}}
+    blockOwnerDeletion: {{.BlockOwnerDeletion}}
 spec:
   rules:
   - host: "stream.nervanasys.com"

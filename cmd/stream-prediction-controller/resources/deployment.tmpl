@@ -2,6 +2,13 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: "{{.Spec.StreamDataSpec.StreamName}}"
+  ownerReferences:
+  - apiVersion: {{.APIVersion}}
+    kind: {{.Kind}}
+    name: {{.Name}}
+    uid: {{.UID}}
+    controller: {{.Controller}}
+    blockOwnerDeletion: {{.BlockOwnerDeletion}}
 spec:
   replicas: 1
   template:
