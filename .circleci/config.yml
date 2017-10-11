@@ -1,6 +1,10 @@
 version: 2
 jobs:
     build:
+        # CircleCI ignores tags by default, unless this filter
+        # is present. See https://circleci.com/docs/2.0/workflows/#git-tag-job-execution
+        filters:
+          tags:
         docker:
           - image: ubuntu:16.04
         working_directory: ~/repo
