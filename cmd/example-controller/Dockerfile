@@ -1,4 +1,4 @@
-FROM kube-controllers-go:v0.1.0
+FROM kube-controllers-go
 
 WORKDIR /go/src/github.com/NervanaSystems/kube-controllers-go/cmd/example-controller
 # -gcflags: disable compiler optimizations and inlining

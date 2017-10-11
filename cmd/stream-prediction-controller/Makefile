@@ -2,11 +2,15 @@ all: docker
 
 COV_THRESHOLD=80
 
-version=v0.1.0
+VERSION := $(shell git describe --tags --always --dirty)
+IMAGE_NAME="stream-prediction-controller"
 
 docker:
 	(cd ../../ && make docker)
-	docker build --no-cache -t stream-prediction-controller:$(version) .
+	docker build \
+		-t $(IMAGE_NAME):$(VERSION) \
+		-t $(IMAGE_NAME):latest \
+		.
 
 lint:
 	gometalinter --config=lint.json .

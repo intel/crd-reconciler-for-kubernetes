@@ -6,17 +6,22 @@ GODEBUGGER ?= gdb
 
 all: controllers
 
-version=v0.1.0
+VERSION := $(shell git describe --tags --always --dirty)
 
 test: lint validate_schemas
 	./scripts/test-with-cov.sh ./pkg/... $(COV_THRESHOLD)
 	go test ./pkg/...
 
 dep:
-	docker build -t kube-controllers-go-dep:$(version) -f Dockerfile.dep .
+	docker build \
+		-t kube-controllers-go-dep:$(VERSION) \
+		-t kube-controllers-go-dep:latest \
+		-f Dockerfile.dep .
 
 docker:
-	docker build -t kube-controllers-go:$(version) .
+	docker build \
+		-t kube-controllers-go:$(VERSION) \
+		-t kube-controllers-go:latest .
 
 controllers: stream-prediction example
 

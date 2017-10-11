@@ -1,4 +1,4 @@
-FROM kube-controllers-go-dep:v0.1.0
+FROM kube-controllers-go-dep
 
 ADD . /go/src/github.com/NervanaSystems/kube-controllers-go
 WORKDIR /go/src/github.com/NervanaSystems/kube-controllers-go
