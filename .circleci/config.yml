@@ -9,14 +9,12 @@ jobs:
           - image: ubuntu:16.04
         working_directory: ~/repo
         steps:
-            - checkout
-
             - run:
                 name: Installing dependencies
                 command: |
                   set -x
                   apt-get update
-                  apt-get install -y curl make git tar python
+                  apt-get install -y curl make git ssh tar python
                   VER="17.03.0-ce"
                   curl -L -o /tmp/docker-$VER.tgz https://get.docker.com/builds/Linux/x86_64/docker-$VER.tgz
                   tar -xz -C /tmp -f /tmp/docker-$VER.tgz
@@ -27,6 +25,16 @@ jobs:
                   tar -xf /tmp/gcloud.tar.gz -C /usr/local/bin
                   /usr/local/bin/google-cloud-sdk/install.sh --quiet
                   ln -s /usr/local/bin/google-cloud-sdk/bin/* /usr/local/bin
+
+            # This is done after installing dependencies to avoid using
+            # Circle CI's native git client which seems to behave strangely
+            # when checking out tags.
+            - checkout
+
+            - run:
+                name: List available tags
+                command: |
+                  git tag
 
             - setup_remote_docker
 
