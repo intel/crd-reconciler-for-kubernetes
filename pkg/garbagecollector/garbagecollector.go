@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/api/apps/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -60,5 +61,12 @@ func (gc *garbageCollector) run(ctx context.Context) error {
 func (gc *garbageCollector) runGCLoop() {
 	for _, resourceClient := range gc.resourceClients {
 		resourceList := resourceClient.List(gc.namespace, gc.gvk)
+		switch resourceClient.Plural() {
+		case "deployments":
+			depList, ok := resourceList.(v1beta1.DeploymentList)
+			if !ok {
+				// error
+			}
+		}
 	}
 }
