@@ -69,6 +69,7 @@ type StreamPredictionSpec struct {
 	SecuritySpec    SecuritySpec          `json:"securitySpec"`
 	StreamDataSpec  StreamDataSpec        `json:"streamDataSpec"`
 	KryptonRepoSpec KryptonRepoSpec       `json:"kryptonRepoSpec"`
+	ResourceSpec    ResourceSpec          `json:"resourceSpec"`
 	State           StreamPredictionState `json:"state"`
 }
 
@@ -100,6 +101,10 @@ type StreamDataSpec struct {
 type SecuritySpec struct {
 	PresignedToken string `json:"presignedToken"`
 	JWTToken       string `json:"jwtToken"`
+}
+
+type ResourceSpec struct {
+	Requests map[string]string `json:"requests"`
 }
 
 // StreamPredictionStatus is the status for the crd.

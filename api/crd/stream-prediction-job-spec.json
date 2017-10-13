@@ -106,6 +106,18 @@
         }
       }
     },
+    "resourceSpec": {
+      "type": "object",
+      "description": "Resource requirements for the stream prediction job. These resources are passed directly to Kubernetes.",
+      "properties": {
+        "requests": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "state": {
       "type": "string",
       "description": "The state space for a stream prediction job. 'Deploying' is the initial state, and 'Completed' and 'Error' are terminal.",

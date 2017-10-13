@@ -69,6 +69,12 @@ func TestStreamPrediction(t *testing.T) {
 			StreamID:         streamID,
 			StreamName:       streamName,
 		},
+		ResourceSpec: crv1.ResourceSpec{
+			Requests: map[string]string{
+				"cpu":    "1",
+				"memory": "512M",
+			},
+		},
 		KryptonRepoSpec: crv1.KryptonRepoSpec{
 			RepoURL:      "git@github.com:NervanaSystems/krypton.git",
 			Commit:       "master",
@@ -126,6 +132,16 @@ func TestStreamPrediction(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.NotNil(t, deployment)
+
+	// Verify the resource request on the deployment
+	// TODO: move to subresource unit tests.
+	cpu := deployment.Spec.Template.Spec.Containers[0].Resources.Requests["cpu"]
+	cpuCount := cpu.MilliValue()
+	assert.Equal(t, int64(1e3), cpuCount)
+
+	memory := deployment.Spec.Template.Spec.Containers[0].Resources.Requests["memory"]
+	memorySize := memory.MilliValue()
+	assert.Equal(t, int64(512e9), memorySize)
 
 	service, err := k8sClient.CoreV1().Services(namespace).
 		Get(streamName, metav1.GetOptions{})

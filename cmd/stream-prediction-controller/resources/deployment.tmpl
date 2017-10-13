@@ -34,12 +34,11 @@ spec:
         image: "{{.Spec.KryptonRepoSpec.Image}}"
         imagePullPolicy: Always
         resources:
-          limits:
-            cpu: 1300m
-            memory: 1600Mi
+          # TODO(niklas): add support for resource limits.
           requests:
-            cpu: 1100m
-            memory: 1300Mi
+{{ range $resource, $request := .Spec.ResourceSpec.Requests }}
+            "{{ $resource }}": "{{ $request }}"
+{{ end }}
         env:
         - name: PRESIGNED_TOKEN
           value: "{{.Spec.SecuritySpec.PresignedToken}}"
@@ -64,9 +63,10 @@ spec:
         image: "{{.Spec.KryptonRepoSpec.SidecarImage}}"
         imagePullPolicy: Always
         resources:
+          # We set requests == limits in order to attain Guaranteed QoS class.
           limits:
-            cpu: 700m
-            memory: 900Mi
+            cpu: 600m
+            memory: 800Mi
           requests:
             cpu: 600m
             memory: 800Mi
