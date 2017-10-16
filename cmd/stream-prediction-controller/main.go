@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"flag"
+
+	"github.com/golang/glog"
 	apiv1 "k8s.io/api/core/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -57,13 +59,14 @@ func main() {
 
 	err = crd.WriteDefinition(clientset, crdHandle)
 	if err != nil {
-		panic(err)
+		// NOTE: We don't panic here, as an existing CRD is absolutely fine.
+		// TODO: Validate that the existing CRD is the version we expect.
+		glog.Warningf("error while writing %s CRD in namespace %s: %s", crv1.StreamPredictionResourceKind, *namespace, err)
 	}
 
 	crdClient, err := crd.NewClient(*config, crdHandle)
 	if err != nil {
 		panic(err)
-
 	}
 
 	//Create hooks
