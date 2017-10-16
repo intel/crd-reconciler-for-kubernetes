@@ -19,6 +19,12 @@ spec:
         id: "{{.Spec.StreamDataSpec.StreamID}}"
     spec:
       volumes:
+        - name: ssh-key-volume
+          secret:
+            secretName: ssh-keys
+        - name: aws-key-volume
+          secret:
+            secretName: aws-keys
         - name: code
         - name: logs
         - name: config
@@ -100,3 +106,7 @@ spec:
           mountPath: /code/
         - name: logs
           mountPath: /var/log/krypton/
+        - name: ssh-key-volume
+          mountPath: /root/ssh-keys/
+        - name: aws-key-volume
+          mountPath: /root/.aws/
