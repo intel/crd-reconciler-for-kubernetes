@@ -13,6 +13,8 @@ import (
 	"github.com/NervanaSystems/kube-controllers-go/pkg/util"
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
+	apiv1 "k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -171,6 +173,80 @@ func TestStreamPrediction(t *testing.T) {
 	t.Logf("List: %v\n", streamPredictList)
 	streamPredictionCRD = crv1.StreamPrediction{}
 	assert.NotContains(t, streamPredictList.Items, streamPrediction)
+
+	// Test if GC and reconcile works for StreamPrediciton.
+	// Create a new stream prediction job which will end-up in an error.
+	streamName = fmt.Sprintf("stream%s", strings.ToLower(ksuid.New().String()))
+	spec.StreamDataSpec.StreamName = streamName
+	streamPredict = &crv1.StreamPrediction{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: streamName,
+		},
+		Spec: spec,
+		Status: crv1.StreamPredictionStatus{
+			State:   crv1.Deploying,
+			Message: "Created, not processed",
+		},
+	}
+	var sprGCTest crv1.StreamPrediction
+	err = crdClient.RESTClient().Post().
+		Resource(crv1.StreamPredictionResourcePlural).
+		Namespace(NAMESPACE).
+		Body(streamPredict).
+		Do().
+		Into(&sprGCTest)
+	if err == nil {
+		t.Logf("Created stream prediction: %#v\n", sprGCTest)
+	} else if apierrors.IsAlreadyExists(err) {
+		t.Errorf("Stream prediction already exists: %#v\n", sprGCTest)
+	} else {
+		t.Fatal(err)
+	}
+	// Check if the crd got created
+	var sprGCTestGet crv1.StreamPrediction
+	err = crdClient.RESTClient().Get().
+		Resource(crv1.StreamPredictionResourcePlural).
+		Namespace(NAMESPACE).
+		Name(streamName).
+		Do().Into(&sprGCTestGet)
+	assert.Nil(t, err)
+
+	testSpec(sprGCTestGet, t, &spec)
+
+	// Update the deployment condition to ReplicaFailure.
+	deployment := &v1beta1.Deployment{}
+	assert.Nil(t, waitPoll(func() (bool, error) {
+		deployment, err = k8sClient.ExtensionsV1beta1().
+			Deployments(NAMESPACE).Get(streamName, metav1.GetOptions{})
+		if err == nil && deployment != nil {
+			return true, nil
+		}
+		return false, err
+	}))
+	assert.Nil(t, err)
+	assert.NotNil(t, deployment)
+
+	depConditions := deployment.Status.Conditions
+	depConditions = append(depConditions, v1beta1.DeploymentCondition{
+		Type:               v1beta1.DeploymentReplicaFailure,
+		Status:             apiv1.ConditionTrue,
+		LastUpdateTime:     metav1.Now(),
+		LastTransitionTime: metav1.Now(),
+		Reason:             "fakeReason",
+		Message:            "fakeMsg",
+	})
+
+	deployment.Status.Conditions = depConditions
+	failedDeployment, err := k8sClient.ExtensionsV1beta1().
+		Deployments(NAMESPACE).UpdateStatus(deployment)
+	assert.Nil(t, err)
+	assert.NotNil(t, failedDeployment)
+
+	assert.True(t, failedDeployment.Status.Conditions[0].Type == v1beta1.DeploymentReplicaFailure)
+
+	// Check if the GC kicks-in, deletes all the sub-resources as the deployment
+	// failed and updates the cr to the error state.
+	checkStreamState(crdClient, streamName, t, k8sClient, NAMESPACE, crv1.Error, true)
 }
 
 func checkStreamState(crdClient crd.Client, streamName string, t *testing.T, k8sClient *kubernetes.Clientset, namespace string, state states.State, expectFailure bool) {
@@ -189,12 +265,15 @@ func checkK8sResources(k8sClient *kubernetes.Clientset, namespace string, stream
 		assert.NotNil(t, deployment)
 	} else {
 		// Deployment is not getting deleted at all in this cluster. So commenting it for now.
-		/*assert.NotNil(t, waitPoll(func() (bool, error) {
-			if err != nil && deployment == nil {
-				return true, nil
-			}
-			return false, err
-		}))*/
+		// However, the DELETE request to the API is posted and can be seen in the logs.
+		/*assert.Nil(t, waitPoll(func() (bool, error) {
+		deployment, err = k8sClient.ExtensionsV1beta1().
+			Deployments(namespace).Get(streamName, metav1.GetOptions{})
+				if err != nil && apierrors.IsNotFound(err) {
+					return true, nil
+				}
+				return false, err
+			}))*/
 	}
 	service, err := k8sClient.CoreV1().Services(namespace).
 		Get(streamName, metav1.GetOptions{})
@@ -203,8 +282,10 @@ func checkK8sResources(k8sClient *kubernetes.Clientset, namespace string, stream
 		assert.NotNil(t, service)
 	} else {
 		// It takes a while to delete the resources, so waiting till they get deleted.
-		assert.NotNil(t, waitPoll(func() (bool, error) {
-			if err != nil && service == nil {
+		assert.Nil(t, waitPoll(func() (bool, error) {
+			service, err = k8sClient.CoreV1().Services(namespace).
+				Get(streamName, metav1.GetOptions{})
+			if err != nil && apierrors.IsNotFound(err) {
 				return true, nil
 			}
 			return false, err
@@ -217,8 +298,10 @@ func checkK8sResources(k8sClient *kubernetes.Clientset, namespace string, stream
 		assert.NotNil(t, ingress)
 	} else {
 		// It takes a while to delete the resources, so waiting till they get deleted.
-		assert.NotNil(t, waitPoll(func() (bool, error) {
-			if err != nil && ingress == nil {
+		assert.Nil(t, waitPoll(func() (bool, error) {
+			ingress, err = k8sClient.ExtensionsV1beta1().
+				Ingresses(namespace).Get(streamName, metav1.GetOptions{})
+			if err != nil && apierrors.IsNotFound(err) {
 				return true, nil
 			}
 			return false, err
@@ -231,8 +314,10 @@ func checkK8sResources(k8sClient *kubernetes.Clientset, namespace string, stream
 		assert.NotNil(t, hpa)
 	} else {
 		// It takes a while to delete the resources, so waiting till they get deleted.
-		assert.NotNil(t, waitPoll(func() (bool, error) {
-			if err != nil && hpa == nil {
+		assert.Nil(t, waitPoll(func() (bool, error) {
+			hpa, err = k8sClient.AutoscalingV1().
+				HorizontalPodAutoscalers(namespace).Get(streamName, metav1.GetOptions{})
+			if err != nil && apierrors.IsNotFound(err) {
 				return true, nil
 			}
 			return false, err
@@ -264,5 +349,5 @@ func waitForStreamPredictionInstanceProcessed(crdClient crd.Client, namespace st
 }
 
 func waitPoll(waitFunc func() (bool, error)) error {
-	return wait.Poll(1*time.Second, 10*time.Second, waitFunc)
+	return wait.Poll(1*time.Second, 1*time.Minute, waitFunc)
 }

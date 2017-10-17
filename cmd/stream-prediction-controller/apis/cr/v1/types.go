@@ -19,8 +19,10 @@ package v1
 import (
 	"encoding/json"
 
-	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 )
 
 const GroupName = "aipg.intel.com"
@@ -68,6 +70,19 @@ func (s *StreamPrediction) JSON() (string, error) {
 	}
 
 	return string(data), nil
+}
+
+func (s *StreamPrediction) GetStatusState() states.State {
+	return s.Status.State
+}
+
+func (s *StreamPrediction) SetStatusStateWithMessage(state states.State, msg string) {
+	s.Status.State = state
+	s.Status.Message = msg
+}
+
+func (s *StreamPrediction) GetErrorState() states.State {
+	return Error
 }
 
 // StreamPredictionState is the current job state.

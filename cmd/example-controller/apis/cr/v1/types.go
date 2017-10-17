@@ -20,6 +20,8 @@ import (
 	"encoding/json"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 )
 
 // GroupName is the group name used in this package.
@@ -58,21 +60,33 @@ func (e *Example) JSON() (string, error) {
 	return string(data), nil
 }
 
+func (s *Example) GetStatusState() states.State {
+	return s.Status.State
+}
+
+func (s *Example) SetStatusStateWithMessage(state states.State, msg string) {
+	s.Status.State = state
+	s.Status.Message = msg
+}
+
+func (s *Example) GetErrorState() states.State {
+	return StateError
+}
+
 type ExampleSpec struct {
 	Foo string `json:"foo"`
 	Bar bool   `json:"bar"`
 }
 
 type ExampleStatus struct {
-	State   ExampleState `json:"state,omitempty"`
+	State   states.State `json:"state,omitempty"`
 	Message string       `json:"message,omitempty"`
 }
 
-type ExampleState string
-
 const (
-	ExampleStateCreated   ExampleState = "Created"
-	ExampleStateProcessed ExampleState = "Processed"
+	StateCreated   states.State = "Created"
+	StateProcessed states.State = "Processed"
+	StateError     states.State = "Processed"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

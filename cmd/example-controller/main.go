@@ -104,7 +104,7 @@ func main() {
 			Bar: true,
 		},
 		Status: crv1.ExampleStatus{
-			State:   crv1.ExampleStateCreated,
+			State:   crv1.StateCreated,
 			Message: "Created, not processed yet",
 		},
 	}
@@ -153,7 +153,7 @@ func waitForExampleInstanceProcessed(crdClient *rest.RESTClient, name string) er
 			Name(name).
 			Do().Into(&example)
 
-		if err == nil && example.Status.State == crv1.ExampleStateProcessed {
+		if err == nil && example.Status.State == crv1.StateProcessed {
 			return true, nil
 		}
 

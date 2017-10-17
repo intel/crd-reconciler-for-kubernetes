@@ -63,6 +63,21 @@ func (f *FSM) PathExists(from, to State) bool {
 	return f.pathExists(fromIdx, toIdx)
 }
 
+// IsStateTerminal validates if the state is terminal.
+func (f *FSM) IsStateTerminal(st State) bool {
+	for k := range f.strToIdx {
+		// Ignore self-loops.
+		if k == st {
+			continue
+		}
+
+		if f.ValidTransition(st, k) {
+			return false
+		}
+	}
+	return true
+}
+
 func (f *FSM) pathExists(from, to int) bool {
 	if f.adjm[from][to] {
 		return true

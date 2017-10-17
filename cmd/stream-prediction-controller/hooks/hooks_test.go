@@ -4,14 +4,16 @@ import (
 	"fmt"
 	"testing"
 
+	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+
 	crv1 "github.com/NervanaSystems/kube-controllers-go/cmd/stream-prediction-controller/apis/cr/v1"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/crd"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/resource"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/util"
 	"github.com/stretchr/testify/assert"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type testResourceClient struct {
@@ -33,6 +35,18 @@ func (trc *testResourceClient) Create(namespace string, templateData interface{}
 func (trc *testResourceClient) Delete(namespace string, name string) error {
 	trc.deleteCalled = true
 	return nil
+}
+
+func (trc *testResourceClient) Get(namespace, name string) (result runtime.Object, err error) {
+	return result, err
+}
+
+func (trc *testResourceClient) List(namespace string) (result runtime.Object, err error) {
+	return
+}
+
+func (trc *testResourceClient) Plural() string {
+	return "fakePlural"
 }
 
 func TestStreampredictionHooks(t *testing.T) {

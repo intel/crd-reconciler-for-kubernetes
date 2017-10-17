@@ -5,6 +5,7 @@ import (
 	"flag"
 
 	"github.com/golang/glog"
+
 	apiv1 "k8s.io/api/core/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -16,7 +17,6 @@ import (
 	"github.com/NervanaSystems/kube-controllers-go/pkg/crd"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/garbagecollector"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/resource"
-	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/util"
 )
 
@@ -86,12 +86,12 @@ func main() {
 
 	// Start a controller for instances of our custom resource.
 	controller := controller.New(crdHandle, hooks, crdClient.RESTClient())
-	garbagecollector.Init(*namespace, crv1.GVK, crdClient, resourceClients)
+	gc := garbagecollector.New(*namespace, crv1.GVK, crdHandle, crdClient, resourceClients)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	go controller.Run(ctx, *namespace)
-	go garbagecollector.Run(ctx)
+	go gc.Run(ctx)
 
 	<-ctx.Done()
 }

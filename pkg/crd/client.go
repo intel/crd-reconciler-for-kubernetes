@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/xeipuuv/gojsonschema"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,6 +15,8 @@ import (
 	"k8s.io/client-go/rest"
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+
+	"github.com/xeipuuv/gojsonschema"
 )
 
 const apiRoot = "/apis"
@@ -23,7 +24,7 @@ const apiRoot = "/apis"
 // Client is used to handle CRD operations.
 type Client interface {
 	Create(crd CustomResource) error
-	Get(namespace string, name string) (CustomResource, error)
+	Get(namespace string, name string) (runtime.Object, error)
 	Update(crd CustomResource) error
 	Delete(namespace string, name string) error
 	Validate(crd CustomResource) error
@@ -37,6 +38,8 @@ type client struct {
 
 // NewClient returns a new REST client wrapper for the supplied CRD handle.
 func NewClient(config rest.Config, h *Handle) (Client, error) {
+	// TODO(balajismaninam): move scheme building to register.go in crv1.
+	// We can enable metav1.GetOptions and metav1.ListOptions after that.
 	scheme := runtime.NewScheme()
 
 	scheme.AddKnownTypes(h.SchemaGroupVersion, h.ResourceType, h.ResourceListType)
@@ -77,9 +80,18 @@ func (c *client) Create(crd CustomResource) error {
 }
 
 // Get retrieves the CRD from the Kubernetes API server.
-func (c *client) Get(namespace string, name string) (CustomResource, error) {
-	// TODO(CD): Complete method body
-	panic("crd.Client -- Get method is not implemented")
+func (c *client) Get(namespace string, name string) (runtime.Object, error) {
+	// TODO(balajismaniam): Move scheme building to register.go in crv1 and
+	// enable the usage of metav1.GetOptions{}.
+	result := c.handle.ResourceType.DeepCopyObject()
+	err := c.restClient.Get().
+		Namespace(namespace).
+		Resource(c.handle.Plural).
+		Name(name).
+		Do().
+		Into(result)
+
+	return result, err
 }
 
 // Update updates the CRD on the Kubernetes API server.

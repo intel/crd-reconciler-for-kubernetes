@@ -4,15 +4,16 @@ import (
 	"fmt"
 	"net/http"
 
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
-	"github.com/golang/glog"
-
 	"github.com/NervanaSystems/kube-controllers-go/pkg/resource/reify"
+	"github.com/golang/glog"
 )
 
 // Client manipulates Kubernetes API resources backed by template files.
@@ -20,10 +21,13 @@ type Client interface {
 	// Create creates a new object using the supplied data object for
 	// template expansion.
 	Create(namespace string, templateData interface{}) error
-	// Delete deletes the object
+	// Delete deletes the object.
 	Delete(namespace string, name string) error
+	// Get retrieves the object.
+	Get(namespace, name string) (runtime.Object, error)
 	// List lists objects based on group, version and kind.
-	List(namespace string, gvk schema.GroupVersionKind) (interface{}, error)
+	List(namespace string) (runtime.Object, error)
+	// Plural returns the plural form of the resource.
 	Plural() string
 }
 
@@ -32,21 +36,16 @@ type client struct {
 	// TODO(CD): Try to get this automatically from the template contents.
 	resourcePluralForm string
 	templateFileName   string
-	singleType         interface{}
-	listType           interface{}
 }
 
 // NewClient returns a new resource client.
 func NewClient(restClient rest.Interface, resourcePluralForm string,
-	templateFileName string, singleType interface{},
-	listType interface{}) Client {
+	templateFileName string) Client {
 
 	return &client{
 		restClient:         restClient,
 		resourcePluralForm: resourcePluralForm,
 		templateFileName:   templateFileName,
-		singleType:         singleType,
-		listType:           listType,
 	}
 }
 
@@ -75,7 +74,7 @@ func (c *client) Create(namespace string, templateData interface{}) error {
 	return nil
 }
 
-func (c *client) Delete(namespace string, name string) error {
+func (c *client) Delete(namespace, name string) error {
 	request := c.restClient.Delete().
 		Namespace(namespace).
 		Resource(c.resourcePluralForm).
@@ -86,23 +85,61 @@ func (c *client) Delete(namespace string, name string) error {
 	return request.Do().Error()
 }
 
-func (c *client) List(namespace string, gvk schema.GroupVersionKind) (interface{}, error) {
-	selector := fields.Set{
-		"metadata.ownerReferences[0].apiVersion": gvk.GroupVersion().String(),
-		"metadata.ownerReferences[0].kind":       gvk.Kind,
-	}.AsSelector().String()
-	opts := metav1.ListOptions{FieldSelector: selector}
-	result := c.listType
+func (c *client) Get(namespace, name string) (result runtime.Object, err error) {
+	switch c.resourcePluralForm {
+	case "deployments":
+		result = &v1beta1.Deployment{}
+	case "services":
+		result = &corev1.Service{}
+	case "ingresses":
+		result = &v1beta1.Ingress{}
+	case "horizontalpodautoscalers":
+		result = &autoscalingv1.HorizontalPodAutoscaler{}
+	default:
+		errMsg := fmt.Sprintf("unexpected resource client type (plural: %v)", c.resourcePluralForm)
+		glog.Errorf(errMsg)
+		return result, fmt.Errorf(errMsg)
+	}
+
+	opts := metav1.GetOptions{}
+	err = c.restClient.Get().
+		Namespace(namespace).
+		Resource(c.resourcePluralForm).
+		Name(name).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Do().
+		Into(result)
+
+	return result, err
+}
+
+func (c *client) List(namespace string) (result runtime.Object, err error) {
+	switch c.resourcePluralForm {
+	case "deployments":
+		result = &v1beta1.DeploymentList{}
+	case "services":
+		result = &corev1.ServiceList{}
+	case "ingresses":
+		result = &v1beta1.IngressList{}
+	case "horizontalpodautoscalers":
+		result = &autoscalingv1.HorizontalPodAutoscalerList{}
+	default:
+		errMsg := fmt.Sprintf("unexpected resource client list type (plural: %v)", c.resourcePluralForm)
+		glog.Errorf(errMsg)
+		return result, fmt.Errorf(errMsg)
+	}
+
+	opts := metav1.ListOptions{}
 	err = c.restClient.Get().
 		Namespace(namespace).
 		Resource(c.resourcePluralForm).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Do().
-		Into(&result)
+		Into(result)
 
-	return into, err
+	return result, err
 }
 
 func (c *client) Plural() string {
-	return c.resourcePluralFrom
+	return c.resourcePluralForm
 }

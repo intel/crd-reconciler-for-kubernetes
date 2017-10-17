@@ -20,7 +20,7 @@ func (c *exampleHooks) Add(obj interface{}) {
 	// this copy or create a copy manually for better performance.
 	exampleCopy := example.DeepCopy()
 	exampleCopy.Status = crv1.ExampleStatus{
-		State:   crv1.ExampleStateProcessed,
+		State:   crv1.StateProcessed,
 		Message: "Successfully processed by controller",
 	}
 
