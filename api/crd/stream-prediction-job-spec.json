@@ -100,7 +100,7 @@
           "type": "string",
           "description": "Sandbox for job files. Log files from the job execution will end up here as well."
         },
-        "aWSDefaultRegion": {
+        "awsDefaultRegion": {
           "type": "string",
           "description": "The default AWS region to use for s3 downloads."
         }
