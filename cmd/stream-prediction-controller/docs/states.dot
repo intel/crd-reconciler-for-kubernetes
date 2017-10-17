@@ -13,5 +13,6 @@ digraph SPStates {
     Deploying -> Deployed  [label = "deploy complete"];
     Deploying -> Error     [label = "deploy failed"];
     Deployed  -> Completed [label = "undeploy"];
+    Deploying -> Completed [label = "undeploy"];
     Deployed  -> Error     [label = "errored"];
 }

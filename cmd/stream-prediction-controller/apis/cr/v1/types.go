@@ -19,6 +19,7 @@ package v1
 import (
 	"encoding/json"
 
+	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -65,12 +66,12 @@ type StreamPredictionState string
 
 // StreamPredictionSpec is the spec for the crd.
 type StreamPredictionSpec struct {
-	NeonRepoSpec    NeonRepoSpec          `json:"neonRepoSpec"`
-	SecuritySpec    SecuritySpec          `json:"securitySpec"`
-	StreamDataSpec  StreamDataSpec        `json:"streamDataSpec"`
-	KryptonRepoSpec KryptonRepoSpec       `json:"kryptonRepoSpec"`
-	ResourceSpec    ResourceSpec          `json:"resourceSpec"`
-	State           StreamPredictionState `json:"state"`
+	NeonRepoSpec    NeonRepoSpec    `json:"neonRepoSpec"`
+	SecuritySpec    SecuritySpec    `json:"securitySpec"`
+	StreamDataSpec  StreamDataSpec  `json:"streamDataSpec"`
+	KryptonRepoSpec KryptonRepoSpec `json:"kryptonRepoSpec"`
+	ResourceSpec    ResourceSpec    `json:"resourceSpec"`
+	State           states.State    `json:"state"`
 }
 
 type KryptonRepoSpec struct {
@@ -109,23 +110,23 @@ type ResourceSpec struct {
 
 // StreamPredictionStatus is the status for the crd.
 type StreamPredictionStatus struct {
-	State   StreamPredictionState `json:"state,omitempty"`
-	Message string                `json:"message,omitempty"`
+	State   states.State `json:"state,omitempty"`
+	Message string       `json:"message,omitempty"`
 }
 
 const (
-	// StreamPredictionDeploying In this states, a job has been created, but its sub-resources are pending.
-	StreamPredictionDeploying StreamPredictionState = "Deploying"
+	// Deploying In this state, a job has been created, but its sub-resources are pending.
+	Deploying states.State = "Deploying"
 
-	// StreamPredictionDeployed This is the _ready_ state for a stream prediction job.
+	// Deployed This is the _ready_ state for a stream prediction job.
 	// In this state, it is ready to respond to queries.
-	StreamPredictionDeployed StreamPredictionState = "Deployed"
+	Deployed states.State = "Deployed"
 
-	// StreamPredictionCompleted A `Completed` job has been undeployed.  `Completed` is a terminal state.
-	StreamPredictionCompleted StreamPredictionState = "Completed"
+	// Completed A `Completed` job has been undeployed.  `Completed` is a terminal state.
+	Completed states.State = "Completed"
 
-	// StreamPredictionError A job is in an `Error` state if an error has caused it to no longer be available to respond to queries.
-	StreamPredictionError StreamPredictionState = "Error"
+	// Error A job is in an `Error` state if an error has caused it to no longer be available to respond to queries.
+	Error states.State = "Error"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -134,3 +135,19 @@ type StreamPredictionList struct {
 	metav1.ListMeta `json:"metadata"`
 	Items           []StreamPrediction `json:"items"`
 }
+
+func getStreamPredictionFSM() *states.FSM {
+	fsm := states.NewFSM(
+		Deploying, Deployed,
+		Completed, Error,
+	)
+	fsm.SetAdj(Deploying, Error)
+	fsm.SetAdj(Deploying, Deployed)
+	fsm.SetAdj(Deploying, Completed)
+	fsm.SetAdj(Deployed, Error)
+	fsm.SetAdj(Deployed, Completed)
+	return fsm
+}
+
+// StreamPredictionFSM represents the FSM for a Stream Prediction job
+var StreamPredictionFSM *states.FSM = getStreamPredictionFSM()

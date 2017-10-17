@@ -7,6 +7,7 @@ import (
 	crv1 "github.com/NervanaSystems/kube-controllers-go/cmd/stream-prediction-controller/apis/cr/v1"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/crd"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/resource"
+	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/util"
 	"github.com/stretchr/testify/assert"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -16,8 +17,7 @@ import (
 type testResourceClient struct {
 	createCalled   bool
 	createWillFail bool
-
-	deleteCalled bool
+	deleteCalled   bool
 }
 
 func (trc *testResourceClient) Create(namespace string, templateData interface{}) error {
@@ -61,10 +61,23 @@ func TestStreampredictionHooks(t *testing.T) {
 			Name: "stream-foobar",
 		},
 		Status: crv1.StreamPredictionStatus{
-			State:   crv1.StreamPredictionDeployed,
+			State:   crv1.Deploying,
 			Message: "Created, not processed",
 		},
+		Spec: crv1.StreamPredictionSpec{
+			State: crv1.Deployed,
+		},
 	}
+
+	fsm := states.NewFSM(
+		crv1.Deploying, crv1.Deployed,
+		crv1.Completed, crv1.Error,
+	)
+	fsm.SetAdj(crv1.Deploying, crv1.Error)
+	fsm.SetAdj(crv1.Deploying, crv1.Deployed)
+	fsm.SetAdj(crv1.Deploying, crv1.Completed)
+	fsm.SetAdj(crv1.Deployed, crv1.Error)
+	fsm.SetAdj(crv1.Deployed, crv1.Completed)
 
 	//
 	// First test, make sure the success case pass.
@@ -73,7 +86,7 @@ func TestStreampredictionHooks(t *testing.T) {
 	foo := &testResourceClient{createWillFail: false}
 	bar := &testResourceClient{createWillFail: false}
 
-	hooks := NewStreamPredictionHooks(crdClient, []resource.Client{foo, bar})
+	hooks := NewStreamPredictionHooks(crdClient, []resource.Client{foo, bar}, fsm)
 
 	hooks.Add(sp)
 
@@ -89,7 +102,7 @@ func TestStreampredictionHooks(t *testing.T) {
 	foo = &testResourceClient{createWillFail: true}
 	bar = &testResourceClient{createWillFail: false}
 
-	hooks = NewStreamPredictionHooks(crdClient, []resource.Client{foo, bar})
+	hooks = NewStreamPredictionHooks(crdClient, []resource.Client{foo, bar}, fsm)
 
 	hooks.Add(sp)
 
@@ -105,7 +118,7 @@ func TestStreampredictionHooks(t *testing.T) {
 	foo = &testResourceClient{createWillFail: false}
 	bar = &testResourceClient{createWillFail: true}
 
-	hooks = NewStreamPredictionHooks(crdClient, []resource.Client{foo, bar})
+	hooks = NewStreamPredictionHooks(crdClient, []resource.Client{foo, bar}, fsm)
 
 	hooks.Add(sp)
 
@@ -113,6 +126,94 @@ func TestStreampredictionHooks(t *testing.T) {
 	assert.True(t, bar.createCalled)
 	assert.True(t, foo.deleteCalled)
 	assert.True(t, bar.deleteCalled)
+
+	// Test invalid Add
+	newCRD := &crv1.StreamPrediction{
+		Spec: crv1.StreamPredictionSpec{
+			State: crv1.Deployed,
+		},
+		Status: crv1.StreamPredictionStatus{
+			State:   crv1.Deployed,
+			Message: "Deployed, all resources are up",
+		},
+	}
+
+	foo = &testResourceClient{createWillFail: false}
+	bar = &testResourceClient{createWillFail: false}
+
+	hooks = NewStreamPredictionHooks(crdClient, []resource.Client{foo, bar}, fsm)
+
+	hooks.Add(newCRD)
+
+	assert.False(t, foo.createCalled)
+	assert.False(t, bar.createCalled)
+	assert.False(t, foo.deleteCalled)
+	assert.False(t, bar.deleteCalled)
+
+	// Update Tests
+	// Check valid transitions
+	// Transition from:
+	// 1. Deployed --> Completed
+	// In this case, all the resources should get undeployed.
+	oldCRD := &crv1.StreamPrediction{
+		Status: crv1.StreamPredictionStatus{
+			State:   crv1.Deployed,
+			Message: "Deployed, all resources are up",
+		},
+	}
+	newCRD = &crv1.StreamPrediction{
+		Spec: crv1.StreamPredictionSpec{
+			State: crv1.Completed,
+		},
+		Status: crv1.StreamPredictionStatus{
+			State:   crv1.Deployed,
+			Message: "Deployed, all resources are up",
+		},
+	}
+
+	foo = &testResourceClient{createWillFail: false}
+	bar = &testResourceClient{createWillFail: false}
+
+	hooks = NewStreamPredictionHooks(crdClient, []resource.Client{foo, bar}, fsm)
+
+	hooks.Update(oldCRD, newCRD)
+
+	assert.False(t, foo.createCalled)
+	assert.False(t, bar.createCalled)
+	assert.True(t, foo.deleteCalled)
+	assert.True(t, bar.deleteCalled)
+
+	// Invalid state change check
+	// 2. Completed --> Error
+	// In this case, nothing should get called
+	oldCRD = &crv1.StreamPrediction{
+		Status: crv1.StreamPredictionStatus{
+			State:   crv1.Completed,
+			Message: "Completed the stream predict",
+		},
+	}
+	newCRD = &crv1.StreamPrediction{
+		Spec: crv1.StreamPredictionSpec{
+			State: crv1.Error,
+		},
+		Status: crv1.StreamPredictionStatus{
+			State:   crv1.Completed,
+			Message: "Completed the stream predict",
+		},
+	}
+
+	foo = &testResourceClient{createWillFail: false}
+	bar = &testResourceClient{createWillFail: false}
+
+	hooks = NewStreamPredictionHooks(crdClient, []resource.Client{foo, bar}, fsm)
+
+	hooks.Update(oldCRD, newCRD)
+
+	assert.False(t, foo.createCalled)
+	assert.False(t, bar.createCalled)
+	assert.False(t, foo.deleteCalled)
+	assert.False(t, bar.deleteCalled)
+
 }
 
 func TestSchemaValidation(t *testing.T) {

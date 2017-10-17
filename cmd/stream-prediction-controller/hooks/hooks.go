@@ -9,6 +9,7 @@ import (
 	crv1 "github.com/NervanaSystems/kube-controllers-go/cmd/stream-prediction-controller/apis/cr/v1"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/crd"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/resource"
+	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 )
 
 var (
@@ -24,13 +25,15 @@ var (
 type StreamPredictionHooks struct {
 	resourceClients []resource.Client
 	crdClient       crd.Client
+	fsm             *states.FSM
 }
 
 // NewStreamPredictionHooks creates and returns a new instance of the StreamPredictionHooks
-func NewStreamPredictionHooks(crdClient crd.Client, resourceClients []resource.Client) *StreamPredictionHooks {
+func NewStreamPredictionHooks(crdClient crd.Client, resourceClients []resource.Client, fsm *states.FSM) *StreamPredictionHooks {
 	return &StreamPredictionHooks{
 		resourceClients: resourceClients,
 		crdClient:       crdClient,
+		fsm:             fsm,
 	}
 }
 
@@ -45,22 +48,34 @@ func (h *StreamPredictionHooks) Add(obj interface{}) {
 
 	streamPredict := streamCrd.DeepCopy()
 
+	if streamPredict.Spec.State != crv1.Deployed || streamPredict.Status.State != crv1.Deploying {
+		glog.Info("New stream spec is not in a deployed state and status is not in deploying state")
+		streamPredict.Status = crv1.StreamPredictionStatus{
+			State:   crv1.Error,
+			Message: "Failed to deploy StreamPrediction",
+		}
+		if err := h.crdClient.Update(streamPredict); err != nil {
+			glog.Infof("error updating status: %v\n", err)
+		}
+		return
+	}
+
 	if err := h.addResources(streamPredict); err != nil {
 		// Delete all of the sub-resources.
 		h.deleteResources(streamPredict)
 
 		streamPredict.Status = crv1.StreamPredictionStatus{
-			State:   crv1.StreamPredictionError,
+			State:   crv1.Error,
 			Message: "Failed to deploy StreamPrediction",
 		}
-		if h.crdClient.Update(streamPredict); err != nil {
+		if err = h.crdClient.Update(streamPredict); err != nil {
 			glog.Infof("error updating status: %v\n", err)
 		}
 		return
 	}
 
 	streamPredict.Status = crv1.StreamPredictionStatus{
-		State:   crv1.StreamPredictionDeployed,
+		State:   crv1.Deployed,
 		Message: "Deployed Sub-Resources",
 	}
 	if err := h.crdClient.Update(streamPredict); err != nil {
@@ -72,12 +87,49 @@ func (h *StreamPredictionHooks) Add(obj interface{}) {
 
 // Update handles the update of a stream prediction object
 func (h *StreamPredictionHooks) Update(oldObj, newObj interface{}) {
-	streamPredict, ok := newObj.(*crv1.StreamPrediction)
+	newStreamPredict, ok := newObj.(*crv1.StreamPrediction)
 	if !ok {
 		glog.Errorf("object received is not of type StreamPrediction %v", newObj)
 		return
 	}
-	glog.Infof("update, Got crd: %s", streamPredict.ObjectMeta.SelfLink)
+
+	oldStreamPredict, ok := oldObj.(*crv1.StreamPrediction)
+	if !ok {
+		glog.Errorf("object received is not of type StreamPrediction %v", oldObj)
+		return
+	}
+
+	if newStreamPredict.Spec.State == oldStreamPredict.Spec.State {
+		glog.Infof("Received an update of the same state. Old crd: %s, New crd: %s", oldStreamPredict, newStreamPredict)
+		return
+	}
+
+	if newStreamPredict.Spec.State == newStreamPredict.Status.State {
+		glog.Infof("Received an update in the same state: Old state %s, New state: %s", newStreamPredict.Status.State, newStreamPredict.Spec.State)
+		return
+	}
+
+	if !h.fsm.PathExists(newStreamPredict.Status.State, newStreamPredict.Spec.State) {
+		glog.Infof("Got an update to an invalid state. Current state: %v, requested state %v", oldStreamPredict.Status.State, newStreamPredict.Spec.State)
+		return
+	}
+
+	switch newStreamPredict.Spec.State {
+
+	case crv1.Completed:
+		glog.Infof("Got an update for completing the stream predict %v", newStreamPredict)
+		// Delete the subresources and update the status
+		h.deleteResources(newStreamPredict)
+		newStreamPredict.Status = crv1.StreamPredictionStatus{
+			State:   crv1.Completed,
+			Message: "Stream Prediction completed",
+		}
+		if err := h.crdClient.Update(newStreamPredict); err != nil {
+			glog.Infof("error updating status: %v\n", err)
+			return
+		}
+		glog.Info("Successfully deleted subresources")
+	}
 }
 
 // Delete handles the deletion of a stream prediction object
