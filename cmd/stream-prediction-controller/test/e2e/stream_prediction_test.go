@@ -13,7 +13,6 @@ import (
 	"github.com/NervanaSystems/kube-controllers-go/pkg/util"
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
-	apiv1 "k8s.io/api/core/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,8 +20,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+const NAMESPACE = "e2e-test"
+
 func TestStreamPrediction(t *testing.T) {
-	namespace := "default"
 	config, err := util.BuildConfig("/root/.kube/config")
 	assert.Nil(t, err)
 
@@ -99,7 +99,7 @@ func TestStreamPrediction(t *testing.T) {
 	var result crv1.StreamPrediction
 	err = crdClient.RESTClient().Post().
 		Resource(crv1.StreamPredictionResourcePlural).
-		Namespace(namespace).
+		Namespace(NAMESPACE).
 		Body(streamPredict).
 		Do().
 		Into(&result)
@@ -116,21 +116,31 @@ func TestStreamPrediction(t *testing.T) {
 	var streamPrediction crv1.StreamPrediction
 	err = crdClient.RESTClient().Get().
 		Resource(crv1.StreamPredictionResourcePlural).
-		Namespace(apiv1.NamespaceDefault).
+		Namespace(NAMESPACE).
 		Name(streamName).
 		Do().Into(&streamPrediction)
 	assert.Nil(t, err)
 
 	testSpec(streamPrediction, t, &spec)
 
-	checkStreamState(crdClient, streamName, t, k8sClient, namespace, crv1.Deployed, false)
+	checkStreamState(crdClient, streamName, t, k8sClient, NAMESPACE, crv1.Deployed, false)
 
 	streamPredictList := crv1.StreamPredictionList{}
-	err = crdClient.RESTClient().Get().Resource(crv1.StreamPredictionResourcePlural).Do().Into(&streamPredictList)
+	err = crdClient.RESTClient().
+		Get().
+		Resource(crv1.StreamPredictionResourcePlural).
+		Do().
+		Into(&streamPredictList)
 	assert.Nil(t, err)
 
 	streamPredictionCRD := crv1.StreamPrediction{}
-	err = crdClient.RESTClient().Get().Resource(crv1.StreamPredictionResourcePlural).Namespace(namespace).Name(streamName).Do().Into(&streamPredictionCRD)
+	err = crdClient.RESTClient().
+		Get().
+		Resource(crv1.StreamPredictionResourcePlural).
+		Namespace(NAMESPACE).
+		Name(streamName).
+		Do().
+		Into(&streamPredictionCRD)
 	assert.Nil(t, err)
 	assert.NotNil(t, streamPredictionCRD)
 
@@ -141,7 +151,7 @@ func TestStreamPrediction(t *testing.T) {
 	// Right now it's in Deployed. Try changing it to Completed and check if all the resources are deleted.
 	err = crdClient.RESTClient().Get().
 		Resource(crv1.StreamPredictionResourcePlural).
-		Namespace(apiv1.NamespaceDefault).
+		Namespace(NAMESPACE).
 		Name(streamName).
 		Do().Into(&streamPrediction)
 	assert.Nil(t, err)
@@ -149,9 +159,9 @@ func TestStreamPrediction(t *testing.T) {
 	streamPrediction.Spec.State = crv1.Completed
 	err = crdClient.Update(&streamPrediction)
 	assert.Nil(t, err)
-	checkStreamState(crdClient, streamName, t, k8sClient, namespace, crv1.Completed, true)
+	checkStreamState(crdClient, streamName, t, k8sClient, NAMESPACE, crv1.Completed, true)
 
-	err = crdClient.Delete(namespace, streamName)
+	err = crdClient.Delete(NAMESPACE, streamName)
 	assert.Nil(t, err)
 
 	streamPredictList = crv1.StreamPredictionList{}
@@ -165,7 +175,7 @@ func TestStreamPrediction(t *testing.T) {
 
 func checkStreamState(crdClient crd.Client, streamName string, t *testing.T, k8sClient *kubernetes.Clientset, namespace string, state states.State, expectFailure bool) {
 	// Wait for the stream predict crd to get created and being processed
-	err := WaitForStreamPredictionInstanceProcessed(crdClient, streamName, state)
+	err := waitForStreamPredictionInstanceProcessed(crdClient, NAMESPACE, streamName, state)
 	assert.Nil(t, err)
 	t.Logf("Processed crd: %s", streamName)
 	checkK8sResources(k8sClient, namespace, streamName, t, expectFailure)
@@ -236,12 +246,12 @@ func testSpec(streamPrediction crv1.StreamPrediction, t *testing.T, spec *crv1.S
 }
 
 // WaitForStreamPredictionInstanceProcessed waits for the stream prediction to be processed.
-func WaitForStreamPredictionInstanceProcessed(crdClient crd.Client, name string, state states.State) error {
+func waitForStreamPredictionInstanceProcessed(crdClient crd.Client, namespace string, name string, state states.State) error {
 	return waitPoll(func() (bool, error) {
 		var streamPrediction crv1.StreamPrediction
 		err := crdClient.RESTClient().Get().
 			Resource(crv1.StreamPredictionResourcePlural).
-			Namespace(apiv1.NamespaceDefault).
+			Namespace(namespace).
 			Name(name).
 			Do().Into(&streamPrediction)
 

@@ -16,7 +16,7 @@ services:
 
   stream-prediction-controller:
     image: "stream-prediction-controller"
-    command: "sh -c \"/go/src/github.com/NervanaSystems/kube-controllers-go/resources/wait-port kubernetes 8080 && /go/bin/stream-prediction-controller --kubeconfig=/root/.kube/config --namespace=default --v=4\""
+    command: "sh -c \"/go/src/github.com/NervanaSystems/kube-controllers-go/resources/wait-port kubernetes 8080 && /go/bin/stream-prediction-controller --kubeconfig=/root/.kube/config --namespace=e2e-test --v=4\""
     volumes:
       - ./resources:/root/.kube
       - ./cmd/stream-prediction-controller/resources:/etc/streampredictions

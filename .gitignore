@@ -1,5 +1,6 @@
 vendor/
 resources/cache/
+resources/http-cache/
 resources/schema/
 *.swp
 *.swo
