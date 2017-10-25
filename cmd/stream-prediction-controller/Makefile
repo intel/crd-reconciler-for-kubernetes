@@ -7,6 +7,12 @@ GOOGLE_AUTH=
 IMAGE_NAME=stream-prediction-controller
 COV_THRESHOLD=80
 
+quick-docker:
+	docker build \
+		-t $(IMAGE_NAME):$(VERSION) \
+		-t $(IMAGE_NAME):latest \
+		.
+
 docker:
 	(cd ../../ && make docker)
 	docker build \

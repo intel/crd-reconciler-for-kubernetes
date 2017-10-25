@@ -12,11 +12,12 @@ import (
 	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/util"
 	"github.com/segmentio/ksuid"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -24,9 +25,9 @@ import (
 
 const NAMESPACE = "e2e-test"
 
-func TestStreamPrediction(t *testing.T) {
+func makeClients(t *testing.T) (crd.Client, *kubernetes.Clientset) {
 	config, err := util.BuildConfig("/root/.kube/config")
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	crdHandle := crd.New(
 		&crv1.StreamPrediction{},
@@ -41,190 +42,169 @@ func TestStreamPrediction(t *testing.T) {
 	)
 
 	crdClient, err := crd.NewClient(*config, crdHandle)
-	assert.Nil(t, err)
+	require.Nil(t, err)
+	require.NotNil(t, crdClient)
 
 	k8sClient, err := kubernetes.NewForConfig(config)
-	assert.Nil(t, err)
-	assert.NotNil(t, k8sClient)
+	require.Nil(t, err)
+	require.NotNil(t, k8sClient)
 
-	streamID := 0
+	return crdClient, k8sClient
+}
+
+func makeStreamPrediction(streamName string, streamID int) *crv1.StreamPrediction {
+	return &crv1.StreamPrediction{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: streamName,
+		},
+		Spec: crv1.StreamPredictionSpec{
+			NeonRepoSpec: crv1.NeonRepoSpec{
+				RepoURL: "git@github.com:NervanaSystems/private-neon.git",
+				Commit:  "v1.8.2",
+			},
+			SecuritySpec: crv1.SecuritySpec{
+				PresignedToken: "95fcbe0cfe747b867655a243cee330",
+				JWTToken:       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdHJlYW1faWQiOjEwfQ.JxxqL8-6OV4xfQmy4dGRis3QSRuTJH2kattCfLHGKwA",
+			},
+			StreamDataSpec: crv1.StreamDataSpec{
+				ModelPRM:         "/code/model.prm",
+				ModelPath:        "s3://helium-joboutput-dev/integration/20dec8c3e38e2804888f252ef281121b/51/model.prm",
+				DatasetPath:      "None",
+				ExtraFilename:    "None",
+				CustomCodeURL:    "None",
+				CustomCommit:     "None",
+				AWSPath:          "krypton-logs-dev/integration",
+				AWSDefaultRegion: "us-west-1",
+				StreamID:         streamID,
+				StreamName:       streamName,
+			},
+			ResourceSpec: crv1.ResourceSpec{
+				Requests: map[string]resource.Quantity{
+					"cpu":    resource.MustParse("1"),
+					"memory": resource.MustParse("512M"),
+					"alpha.kubernetes.io/nvidia-gpu": resource.MustParse("2"),
+				},
+			},
+			KryptonRepoSpec: crv1.KryptonRepoSpec{
+				RepoURL:      "git@github.com:NervanaSystems/krypton.git",
+				Commit:       "master",
+				Image:        "nervana/krypton:master",
+				SidecarImage: "nervana/krypton-sidecar:master",
+			},
+			State: crv1.Deployed,
+		},
+		Status: crv1.StreamPredictionStatus{
+			State:   crv1.Deploying,
+			Message: "Created, not processed",
+		},
+	}
+}
+
+func refresh(t *testing.T, local *crv1.StreamPrediction, crdClient crd.Client) {
+	streamName := local.Name()
+	namespace := local.Namespace()
+	*local = crv1.StreamPrediction{}
+	err := crdClient.RESTClient().Get().
+		Resource(crv1.StreamPredictionResourcePlural).
+		Namespace(namespace).
+		Name(streamName).
+		Do().
+		Into(local)
+	require.Nil(t, err)
+}
+
+func TestStreamPrediction(t *testing.T) {
+	crdClient, k8sClient := makeClients(t)
 
 	streamName := fmt.Sprintf("stream%s", strings.ToLower(ksuid.New().String()))
+	streamID := 0
+	original := makeStreamPrediction(streamName, streamID)
 
-	spec := crv1.StreamPredictionSpec{
-		NeonRepoSpec: crv1.NeonRepoSpec{
-			RepoURL: "git@github.com:NervanaSystems/private-neon.git",
-			Commit:  "v1.8.2",
-		},
-		SecuritySpec: crv1.SecuritySpec{
-			PresignedToken: "95fcbe0cfe747b867655a243cee330",
-			JWTToken:       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdHJlYW1faWQiOjEwfQ.JxxqL8-6OV4xfQmy4dGRis3QSRuTJH2kattCfLHGKwA",
-		},
-		StreamDataSpec: crv1.StreamDataSpec{
-			ModelPRM:         "/code/model.prm",
-			ModelPath:        "s3://helium-joboutput-dev/integration/20dec8c3e38e2804888f252ef281121b/51/model.prm",
-			DatasetPath:      "None",
-			ExtraFilename:    "None",
-			CustomCodeURL:    "None",
-			CustomCommit:     "None",
-			AWSPath:          "krypton-logs-dev/integration",
-			AWSDefaultRegion: "us-west-1",
-			StreamID:         streamID,
-			StreamName:       streamName,
-		},
-		ResourceSpec: crv1.ResourceSpec{
-			Requests: map[string]string{
-				"cpu":    "1",
-				"memory": "512M",
-			},
-		},
-		KryptonRepoSpec: crv1.KryptonRepoSpec{
-			RepoURL:      "git@github.com:NervanaSystems/krypton.git",
-			Commit:       "master",
-			Image:        "nervana/krypton:master",
-			SidecarImage: "nervana/krypton-sidecar:master",
-		},
-		State: crv1.Deployed,
-	}
-
-	streamPredict := &crv1.StreamPrediction{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: streamName,
-		},
-		Spec: spec,
-		Status: crv1.StreamPredictionStatus{
-			State:   crv1.Deploying,
-			Message: "Created, not processed",
-		},
-	}
-
-	var result crv1.StreamPrediction
-	err = crdClient.RESTClient().Post().
+	copy := &crv1.StreamPrediction{}
+	err := crdClient.RESTClient().Post().
 		Resource(crv1.StreamPredictionResourcePlural).
 		Namespace(NAMESPACE).
-		Body(streamPredict).
+		Body(original).
 		Do().
-		Into(&result)
+		Into(copy)
 
 	if err == nil {
-		t.Logf("Created stream prediction: %#v\n", result)
+		t.Logf("Created stream prediction: %#v\n", copy)
 	} else if apierrors.IsAlreadyExists(err) {
-		t.Errorf("Stream prediction already exists: %#v\n", result)
+		t.Errorf("Stream prediction already exists: %#v\n", copy)
 	} else {
 		t.Fatal(err)
 	}
 
-	// Check if the crd got created
-	var streamPrediction crv1.StreamPrediction
-	err = crdClient.RESTClient().Get().
-		Resource(crv1.StreamPredictionResourcePlural).
-		Namespace(NAMESPACE).
-		Name(streamName).
-		Do().Into(&streamPrediction)
-	assert.Nil(t, err)
+	// Check whether the job was created successfully
+	refresh(t, copy, crdClient)
+	testSpec(t, copy, &(original.Spec))
 
-	testSpec(streamPrediction, t, &spec)
+	// Check whether the job was processed.
+	// In the deployed state, all subresources should exist.
+	checkStreamState(t, copy, crdClient, streamName, k8sClient, NAMESPACE, crv1.Deployed, true)
 
-	checkStreamState(crdClient, streamName, t, k8sClient, NAMESPACE, crv1.Deployed, false)
-
-	streamPredictList := crv1.StreamPredictionList{}
-	err = crdClient.RESTClient().
-		Get().
-		Resource(crv1.StreamPredictionResourcePlural).
-		Do().
-		Into(&streamPredictList)
-	assert.Nil(t, err)
-
-	streamPredictionCRD := crv1.StreamPrediction{}
-	err = crdClient.RESTClient().
-		Get().
-		Resource(crv1.StreamPredictionResourcePlural).
-		Namespace(NAMESPACE).
-		Name(streamName).
-		Do().
-		Into(&streamPredictionCRD)
-	assert.Nil(t, err)
-	assert.NotNil(t, streamPredictionCRD)
-
-	t.Logf("List: %v\n", streamPredictList)
-
-	testSpec(streamPredictList.Items[0], t, &spec)
+	refresh(t, copy, crdClient)
+	testSpec(t, copy, &(original.Spec))
 
 	// Right now it's in Deployed. Try changing it to Completed and check if all the resources are deleted.
-	err = crdClient.RESTClient().Get().
-		Resource(crv1.StreamPredictionResourcePlural).
-		Namespace(NAMESPACE).
-		Name(streamName).
-		Do().Into(&streamPrediction)
-	assert.Nil(t, err)
-	assert.NotNil(t, streamPrediction)
-	streamPrediction.Spec.State = crv1.Completed
-	err = crdClient.Update(&streamPrediction)
-	assert.Nil(t, err)
-	checkStreamState(crdClient, streamName, t, k8sClient, NAMESPACE, crv1.Completed, true)
+	refresh(t, copy, crdClient)
+	copy.Spec.State = crv1.Completed
+	require.Nil(t, crdClient.Update(copy))
+	refresh(t, copy, crdClient)
+	checkStreamState(t, copy, crdClient, streamName, k8sClient, NAMESPACE, crv1.Completed, false)
 
 	err = crdClient.Delete(NAMESPACE, streamName)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
-	streamPredictList = crv1.StreamPredictionList{}
-	err = crdClient.RESTClient().Get().Resource(crv1.StreamPredictionResourcePlural).Do().Into(&streamPredictList)
-	assert.Nil(t, err)
+	streamPredictList := &crv1.StreamPredictionList{}
+	require.Nil(t, crdClient.RESTClient().
+		Get().
+		Resource(crv1.StreamPredictionResourcePlural).
+		Do().
+		Into(streamPredictList))
+	require.Equal(t, len(streamPredictList.Items), 0)
+}
 
-	t.Logf("List: %v\n", streamPredictList)
-	streamPredictionCRD = crv1.StreamPrediction{}
-	assert.NotContains(t, streamPredictList.Items, streamPrediction)
+// Test if GC and reconcile works for StreamPrediciton.
+// Create a new stream prediction job which will end-up in an error.
+func TestStreamPredictionGC(t *testing.T) {
+	crdClient, k8sClient := makeClients(t)
 
-	// Test if GC and reconcile works for StreamPrediciton.
-	// Create a new stream prediction job which will end-up in an error.
-	streamName = fmt.Sprintf("stream%s", strings.ToLower(ksuid.New().String()))
-	spec.StreamDataSpec.StreamName = streamName
-	streamPredict = &crv1.StreamPrediction{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: streamName,
-		},
-		Spec: spec,
-		Status: crv1.StreamPredictionStatus{
-			State:   crv1.Deploying,
-			Message: "Created, not processed",
-		},
-	}
-	var sprGCTest crv1.StreamPrediction
-	err = crdClient.RESTClient().Post().
+	streamName := fmt.Sprintf("stream%s", strings.ToLower(ksuid.New().String()))
+	streamID := 0
+	original := makeStreamPrediction(streamName, streamID)
+
+	copy := &crv1.StreamPrediction{}
+	err := crdClient.RESTClient().Post().
 		Resource(crv1.StreamPredictionResourcePlural).
 		Namespace(NAMESPACE).
-		Body(streamPredict).
+		Body(original).
 		Do().
-		Into(&sprGCTest)
+		Into(copy)
+
 	if err == nil {
-		t.Logf("Created stream prediction: %#v\n", sprGCTest)
+		t.Logf("Created stream prediction: %#v\n", copy)
 	} else if apierrors.IsAlreadyExists(err) {
-		t.Errorf("Stream prediction already exists: %#v\n", sprGCTest)
+		t.Errorf("Stream prediction already exists: %#v\n", copy)
 	} else {
 		t.Fatal(err)
 	}
-	// Check if the crd got created
-	var sprGCTestGet crv1.StreamPrediction
-	err = crdClient.RESTClient().Get().
-		Resource(crv1.StreamPredictionResourcePlural).
-		Namespace(NAMESPACE).
-		Name(streamName).
-		Do().Into(&sprGCTestGet)
-	assert.Nil(t, err)
 
-	testSpec(sprGCTestGet, t, &spec)
+	// Check whether the job was created successfully.
+	refresh(t, copy, crdClient)
+	testSpec(t, copy, &(original.Spec))
+
+	// Check whether the job was processed.
+	// In the deployed state, all subresources should exist.
+	checkStreamState(t, copy, crdClient, streamName, k8sClient, NAMESPACE, crv1.Deployed, true)
 
 	// Update the deployment condition to ReplicaFailure.
 	deployment := &v1beta1.Deployment{}
-	assert.Nil(t, waitPoll(func() (bool, error) {
-		deployment, err = k8sClient.ExtensionsV1beta1().
-			Deployments(NAMESPACE).Get(streamName, metav1.GetOptions{})
-		if err == nil && deployment != nil {
-			return true, nil
-		}
-		return false, err
-	}))
-	assert.Nil(t, err)
-	assert.NotNil(t, deployment)
+	deployment, err = k8sClient.ExtensionsV1beta1().
+		Deployments(NAMESPACE).Get(streamName, metav1.GetOptions{})
+	require.Nil(t, err)
+	require.NotNil(t, deployment)
 
 	depConditions := deployment.Status.Conditions
 	depConditions = append(depConditions, v1beta1.DeploymentCondition{
@@ -239,34 +219,69 @@ func TestStreamPrediction(t *testing.T) {
 	deployment.Status.Conditions = depConditions
 	failedDeployment, err := k8sClient.ExtensionsV1beta1().
 		Deployments(NAMESPACE).UpdateStatus(deployment)
-	assert.Nil(t, err)
-	assert.NotNil(t, failedDeployment)
+	require.Nil(t, err)
+	require.NotNil(t, failedDeployment)
+	require.Equal(t, failedDeployment.Status.Conditions[0].Type, v1beta1.DeploymentReplicaFailure)
 
-	assert.True(t, failedDeployment.Status.Conditions[0].Type == v1beta1.DeploymentReplicaFailure)
+	// Check whether the GC kicks-in:
+	// - deletes all the sub-resources as the deployment failed
+	// - updates the job status state to "Error"
+	checkStreamState(t, copy, crdClient, streamName, k8sClient, NAMESPACE, crv1.Deployed, false)
 
-	// Check if the GC kicks-in, deletes all the sub-resources as the deployment
-	// failed and updates the cr to the error state.
-	checkStreamState(crdClient, streamName, t, k8sClient, NAMESPACE, crv1.Error, true)
+	err = crdClient.Delete(NAMESPACE, streamName)
+	require.Nil(t, err)
+
+	streamPredictList := &crv1.StreamPredictionList{}
+	err = crdClient.RESTClient().
+		Get().
+		Resource(crv1.StreamPredictionResourcePlural).
+		Do().
+		Into(streamPredictList)
+	require.Nil(t, err)
+	require.Equal(t, len(streamPredictList.Items), 0)
 }
 
-func checkStreamState(crdClient crd.Client, streamName string, t *testing.T, k8sClient *kubernetes.Clientset, namespace string, state states.State, expectFailure bool) {
+func checkStreamState(t *testing.T,
+	streamPrediction *crv1.StreamPrediction,
+	crdClient crd.Client,
+	streamName string,
+	k8sClient *kubernetes.Clientset,
+	namespace string,
+	state states.State,
+	expectSubresourcesToExist bool) {
 	// Wait for the stream predict crd to get created and being processed
 	err := waitForStreamPredictionInstanceProcessed(crdClient, NAMESPACE, streamName, state)
-	assert.Nil(t, err)
-	t.Logf("Processed crd: %s", streamName)
-	checkK8sResources(k8sClient, namespace, streamName, t, expectFailure)
+	require.Nil(t, err)
+	checkK8sResources(t, streamPrediction, k8sClient, namespace, streamName, expectSubresourcesToExist)
 }
 
-func checkK8sResources(k8sClient *kubernetes.Clientset, namespace string, streamName string, t *testing.T, expectFailure bool) {
+func checkK8sResources(t *testing.T, streamPrediction *crv1.StreamPrediction, k8sClient *kubernetes.Clientset, namespace string, streamName string, expectSubresourcesToExist bool) {
 	deployment, err := k8sClient.ExtensionsV1beta1().
 		Deployments(namespace).Get(streamName, metav1.GetOptions{})
-	if !expectFailure {
-		assert.Nil(t, err)
-		assert.NotNil(t, deployment)
+	if expectSubresourcesToExist {
+		require.Nil(t, err)
+		require.NotNil(t, deployment)
+
+		// Verify template container resource requests and limits
+		jobResources := streamPrediction.Spec.ResourceSpec
+		depResources := deployment.Spec.Template.Spec.Containers[0].Resources
+		expectedRequests := []string{"cpu", "memory", "alpha.kubernetes.io/nvidia-gpu"}
+		expectedLimits := []string{"alpha.kubernetes.io/nvidia-gpu"}
+
+		for _, rName := range expectedRequests {
+			depQuant := depResources.Requests[apiv1.ResourceName(rName)]
+			jobQuant := jobResources.Requests[rName]
+			require.Equal(t, (&depQuant).MilliValue(), (&jobQuant).MilliValue())
+		}
+		for _, rName := range expectedLimits {
+			depQuant := depResources.Limits[apiv1.ResourceName(rName)]
+			jobQuant := jobResources.Requests[rName]
+			require.Equal(t, (&depQuant).MilliValue(), (&jobQuant).MilliValue())
+		}
 	} else {
 		// Deployment is not getting deleted at all in this cluster. So commenting it for now.
 		// However, the DELETE request to the API is posted and can be seen in the logs.
-		/*assert.Nil(t, waitPoll(func() (bool, error) {
+		/*require.Nil(t, waitPoll(func() (bool, error) {
 		deployment, err = k8sClient.ExtensionsV1beta1().
 			Deployments(namespace).Get(streamName, metav1.GetOptions{})
 				if err != nil && apierrors.IsNotFound(err) {
@@ -277,12 +292,12 @@ func checkK8sResources(k8sClient *kubernetes.Clientset, namespace string, stream
 	}
 	service, err := k8sClient.CoreV1().Services(namespace).
 		Get(streamName, metav1.GetOptions{})
-	if !expectFailure {
-		assert.Nil(t, err)
-		assert.NotNil(t, service)
+	if expectSubresourcesToExist {
+		require.Nil(t, err)
+		require.NotNil(t, service)
 	} else {
 		// It takes a while to delete the resources, so waiting till they get deleted.
-		assert.Nil(t, waitPoll(func() (bool, error) {
+		require.Nil(t, waitPoll(func() (bool, error) {
 			service, err = k8sClient.CoreV1().Services(namespace).
 				Get(streamName, metav1.GetOptions{})
 			if err != nil && apierrors.IsNotFound(err) {
@@ -293,12 +308,12 @@ func checkK8sResources(k8sClient *kubernetes.Clientset, namespace string, stream
 	}
 	ingress, err := k8sClient.ExtensionsV1beta1().
 		Ingresses(namespace).Get(streamName, metav1.GetOptions{})
-	if !expectFailure {
-		assert.Nil(t, err)
-		assert.NotNil(t, ingress)
+	if expectSubresourcesToExist {
+		require.Nil(t, err)
+		require.NotNil(t, ingress)
 	} else {
 		// It takes a while to delete the resources, so waiting till they get deleted.
-		assert.Nil(t, waitPoll(func() (bool, error) {
+		require.Nil(t, waitPoll(func() (bool, error) {
 			ingress, err = k8sClient.ExtensionsV1beta1().
 				Ingresses(namespace).Get(streamName, metav1.GetOptions{})
 			if err != nil && apierrors.IsNotFound(err) {
@@ -309,12 +324,12 @@ func checkK8sResources(k8sClient *kubernetes.Clientset, namespace string, stream
 	}
 	hpa, err := k8sClient.AutoscalingV1().
 		HorizontalPodAutoscalers(namespace).Get(streamName, metav1.GetOptions{})
-	if !expectFailure {
-		assert.Nil(t, err)
-		assert.NotNil(t, hpa)
+	if expectSubresourcesToExist {
+		require.Nil(t, err)
+		require.NotNil(t, hpa)
 	} else {
 		// It takes a while to delete the resources, so waiting till they get deleted.
-		assert.Nil(t, waitPoll(func() (bool, error) {
+		require.Nil(t, waitPoll(func() (bool, error) {
 			hpa, err = k8sClient.AutoscalingV1().
 				HorizontalPodAutoscalers(namespace).Get(streamName, metav1.GetOptions{})
 			if err != nil && apierrors.IsNotFound(err) {
@@ -325,9 +340,9 @@ func checkK8sResources(k8sClient *kubernetes.Clientset, namespace string, stream
 	}
 }
 
-func testSpec(streamPrediction crv1.StreamPrediction, t *testing.T, spec *crv1.StreamPredictionSpec) {
+func testSpec(t *testing.T, streamPrediction *crv1.StreamPrediction, spec *crv1.StreamPredictionSpec) {
 	// Check if all the fields are right
-	assert.True(t, reflect.DeepEqual(&streamPrediction.Spec, spec), "Spec is not the same")
+	require.True(t, reflect.DeepEqual(&streamPrediction.Spec, spec), "Spec is not the same")
 }
 
 // WaitForStreamPredictionInstanceProcessed waits for the stream prediction to be processed.
@@ -349,5 +364,5 @@ func waitForStreamPredictionInstanceProcessed(crdClient crd.Client, namespace st
 }
 
 func waitPoll(waitFunc func() (bool, error)) error {
-	return wait.Poll(1*time.Second, 1*time.Minute, waitFunc)
+	return wait.Poll(1*time.Second, 20*time.Second, waitFunc)
 }
