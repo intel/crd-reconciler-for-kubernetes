@@ -19,6 +19,7 @@ package v1
 import (
 	"encoding/json"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -129,7 +130,7 @@ type SecuritySpec struct {
 }
 
 type ResourceSpec struct {
-	Requests map[string]string `json:"requests"`
+	Requests map[string]resource.Quantity `json:"requests"`
 }
 
 // StreamPredictionStatus is the status for the crd.
