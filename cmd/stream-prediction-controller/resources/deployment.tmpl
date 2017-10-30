@@ -66,10 +66,12 @@ spec:
           value: "{{.Spec.SecuritySpec.JWTToken}}"
         - name: STREAM_ID
           value: "{{.Spec.StreamDataSpec.StreamID}}"
-        - name: MODEL_PRM
+        - name: WEIGHTS_FILENAME
           value: "{{.Spec.StreamDataSpec.ModelPRM}}"
         - name: PYTHONPATH
           value: /code/cust/:/code/
+        - name: MODEL_ENVIRONMENT
+          value: neon
         volumeMounts:
         - name: code
           mountPath: /code/
