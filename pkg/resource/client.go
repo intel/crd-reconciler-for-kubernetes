@@ -20,7 +20,7 @@ import (
 type Client interface {
 	// Create creates a new object using the supplied data object for
 	// template expansion.
-	Create(namespace string, templateData interface{}) error
+	Create(namespace string, templateValues interface{}) error
 	// Delete deletes the object.
 	Delete(namespace string, name string) error
 	// Get retrieves the object.
@@ -31,26 +31,31 @@ type Client interface {
 	Plural() string
 }
 
+// GlobalTemplateValues encodes values which will be available to all template specializations.
+type GlobalTemplateValues map[string]string
+
 type client struct {
-	restClient rest.Interface
+	globalTemplateValues GlobalTemplateValues
+	restClient           rest.Interface
 	// TODO(CD): Try to get this automatically from the template contents.
 	resourcePluralForm string
 	templateFileName   string
 }
 
 // NewClient returns a new resource client.
-func NewClient(restClient rest.Interface, resourcePluralForm string,
+func NewClient(globalTemplateValues GlobalTemplateValues, restClient rest.Interface, resourcePluralForm string,
 	templateFileName string) Client {
 
 	return &client{
-		restClient:         restClient,
-		resourcePluralForm: resourcePluralForm,
-		templateFileName:   templateFileName,
+		globalTemplateValues: globalTemplateValues,
+		restClient:           restClient,
+		resourcePluralForm:   resourcePluralForm,
+		templateFileName:     templateFileName,
 	}
 }
 
-func (c *client) Create(namespace string, templateData interface{}) error {
-	resourceBody, err := reify.Reify(c.templateFileName, templateData)
+func (c *client) Create(namespace string, templateValues interface{}) error {
+	resourceBody, err := reify.Reify(c.templateFileName, templateValues, c.globalTemplateValues)
 	if err != nil {
 		return err
 	}

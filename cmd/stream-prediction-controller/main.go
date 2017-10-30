@@ -28,6 +28,7 @@ func main() {
 	ingressTemplateFile := flag.String("ingressFile", "/etc/streampredictions/ingress.tmpl", "Path to an ingress file")
 	hpaTemplateFile := flag.String("hpaFile", "/etc/streampredictions/hpa.tmpl", "Path to a hpa file")
 	schemaFile := flag.String("schema", "", "Path to a custom resource schema file")
+	ingressHost := flag.String("ingressHost", "stream.nervanasys.com", "Host to use as ingress for stream prediction jobs")
 	flag.Set("logtostderr", "true")
 	flag.Parse()
 
@@ -70,13 +71,18 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	globalTemplateValues := resource.GlobalTemplateValues{
+		"INGRESS_HOST": *ingressHost,
+	}
+
 	// TODO: Get appropriate client interfaces and plural forms from API
 	//       discovery instead.
 	resourceClients := []resource.Client{
-		resource.NewClient(k8sclientset.ExtensionsV1beta1().RESTClient(), "deployments", *deploymentTemplateFile),
-		resource.NewClient(k8sclientset.CoreV1().RESTClient(), "services", *serviceTemplateFile),
-		resource.NewClient(k8sclientset.ExtensionsV1beta1().RESTClient(), "ingresses", *ingressTemplateFile),
-		resource.NewClient(k8sclientset.AutoscalingV1().RESTClient(), "horizontalpodautoscalers", *hpaTemplateFile)}
+		resource.NewClient(globalTemplateValues, k8sclientset.ExtensionsV1beta1().RESTClient(), "deployments", *deploymentTemplateFile),
+		resource.NewClient(globalTemplateValues, k8sclientset.CoreV1().RESTClient(), "services", *serviceTemplateFile),
+		resource.NewClient(globalTemplateValues, k8sclientset.ExtensionsV1beta1().RESTClient(), "ingresses", *ingressTemplateFile),
+		resource.NewClient(globalTemplateValues, k8sclientset.AutoscalingV1().RESTClient(), "horizontalpodautoscalers", *hpaTemplateFile)}
 
 	//Create hooks
 	hooks := hooks.NewStreamPredictionHooks(
