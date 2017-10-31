@@ -80,10 +80,23 @@ func (c *client) Create(namespace string, templateValues interface{}) error {
 }
 
 func (c *client) Delete(namespace, name string) error {
+	deleteOptions := &metav1.DeleteOptions{}
+	switch c.resourcePluralForm {
+	// For deployments the propagation policy in delete options must be set
+	// to Foreground to delete the pods along with the replica sets.
+	// See https://kubernetes.io/docs/concepts/workloads/controllers/garbage-collection/#additional-note-on-deployments.
+	case "deployments":
+		deletePolicy := metav1.DeletePropagationForeground
+		deleteOptions = &metav1.DeleteOptions{
+			PropagationPolicy: &deletePolicy,
+		}
+	}
+
 	request := c.restClient.Delete().
 		Namespace(namespace).
 		Resource(c.resourcePluralForm).
-		Name(name)
+		Name(name).
+		Body(deleteOptions)
 
 	glog.Infof("[DEBUG] delete resource URL: %s", request.URL())
 

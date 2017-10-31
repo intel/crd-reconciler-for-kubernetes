@@ -54,6 +54,10 @@ func (gc *GarbageCollector) Run(ctx context.Context) error {
 }
 
 func (gc *GarbageCollector) runGCLoop() {
+	gc.processResourceList()
+}
+
+func (gc *GarbageCollector) processResourceList() {
 	for _, resourceClient := range gc.resourceClients {
 		resourceList, err := resourceClient.List(gc.namespace)
 		if err != nil {
@@ -69,8 +73,8 @@ func (gc *GarbageCollector) runGCLoop() {
 				continue
 			}
 
-			for _, item := range rList.Items {
-				gc.processItem(resourceClient, &item)
+			for _, resource := range rList.Items {
+				gc.processResource(resourceClient, &resource)
 			}
 		case "services":
 			rList, ok := resourceList.(*corev1.ServiceList)
@@ -79,8 +83,8 @@ func (gc *GarbageCollector) runGCLoop() {
 				continue
 			}
 
-			for _, item := range rList.Items {
-				gc.processItem(resourceClient, &item)
+			for _, resource := range rList.Items {
+				gc.processResource(resourceClient, &resource)
 			}
 		case "ingresses":
 			rList, ok := resourceList.(*v1beta1.IngressList)
@@ -89,8 +93,8 @@ func (gc *GarbageCollector) runGCLoop() {
 				continue
 			}
 
-			for _, item := range rList.Items {
-				gc.processItem(resourceClient, &item)
+			for _, resource := range rList.Items {
+				gc.processResource(resourceClient, &resource)
 			}
 		case "horizontalpodautoscalers":
 			rList, ok := resourceList.(*autoscalingv1.HorizontalPodAutoscalerList)
@@ -99,17 +103,16 @@ func (gc *GarbageCollector) runGCLoop() {
 				continue
 			}
 
-			for _, item := range rList.Items {
-				gc.processItem(resourceClient, &item)
+			for _, resource := range rList.Items {
+				gc.processResource(resourceClient, &resource)
 			}
 		default:
 			glog.Errorf("unexpected sub-resource list type (plural: %v)", resourceClient.Plural())
 		}
-
 	}
 }
 
-func (gc *GarbageCollector) processItem(resourceClient resource.Client, resource runtime.Object) {
+func (gc *GarbageCollector) processResource(resourceClient resource.Client, resource runtime.Object) {
 	// Get a meta.Interface object for the resource.
 	rObj, err := meta.Accessor(resource)
 	if err != nil {
@@ -184,6 +187,10 @@ func (gc *GarbageCollector) processItem(resourceClient resource.Client, resource
 		return
 	}
 
+	gc.handleErrors(resourceClient, cr, rObj)
+}
+
+func (gc *GarbageCollector) handleErrors(resourceClient resource.Client, cr crd.CustomResource, rObj metav1.Object) {
 	// If the custom resource is in an error state, delete the
 	// sub-resource.
 	if cr.GetStatusState() == cr.GetErrorState() {
@@ -238,7 +245,6 @@ func (gc *GarbageCollector) processItem(resourceClient resource.Client, resource
 	default:
 		return
 	}
-
 }
 
 func hasDeploymentFailed(depStatus v1beta1.DeploymentStatus) bool {
