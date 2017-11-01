@@ -67,7 +67,7 @@ spec:
         - name: STREAM_ID
           value: "{{.Spec.StreamDataSpec.StreamID}}"
         - name: WEIGHTS_FILENAME
-          value: "{{.Spec.StreamDataSpec.ModelPRM}}"
+          value: "{{.Spec.StreamDataSpec.ModelPath}}"
         - name: PYTHONPATH
           value: /code/cust/:/code/
         - name: MODEL_ENVIRONMENT
@@ -104,7 +104,7 @@ spec:
         - name: KRYPTON_COMMIT
           value: "{{.Spec.KryptonRepoSpec.Commit}}"
         - name: MODEL_PRM
-          value: "{{.Spec.StreamDataSpec.ModelPath}}"
+          value: "{{.Spec.StreamDataSpec.ModelPRM}}"
         - name: DATASET_PATH
           value: "{{.Spec.StreamDataSpec.DatasetPath}}"
         - name: EXTRA_FILENAME
