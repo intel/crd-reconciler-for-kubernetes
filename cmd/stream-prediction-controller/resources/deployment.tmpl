@@ -12,6 +12,7 @@ metadata:
     blockOwnerDeletion: {{.BlockOwnerDeletion}}
 spec:
   replicas: 1
+  minReadySeconds: 60
   template:
     metadata:
       labels:
