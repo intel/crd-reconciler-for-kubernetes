@@ -76,15 +76,13 @@ func main() {
 		"INGRESS_HOST": *ingressHost,
 	}
 
-	// TODO: Get appropriate client interfaces and plural forms from API
-	//       discovery instead.
 	resourceClients := []resource.Client{
-		resource.NewClient(globalTemplateValues, k8sclientset.ExtensionsV1beta1().RESTClient(), "deployments", *deploymentTemplateFile),
-		resource.NewClient(globalTemplateValues, k8sclientset.CoreV1().RESTClient(), "services", *serviceTemplateFile),
-		resource.NewClient(globalTemplateValues, k8sclientset.ExtensionsV1beta1().RESTClient(), "ingresses", *ingressTemplateFile),
-		resource.NewClient(globalTemplateValues, k8sclientset.AutoscalingV1().RESTClient(), "horizontalpodautoscalers", *hpaTemplateFile)}
+		resource.NewDeploymentClient(globalTemplateValues, k8sclientset, *deploymentTemplateFile),
+		resource.NewServiceClient(globalTemplateValues, k8sclientset, *serviceTemplateFile),
+		resource.NewIngressClient(globalTemplateValues, k8sclientset, *ingressTemplateFile),
+		resource.NewHPAClient(globalTemplateValues, k8sclientset, *hpaTemplateFile)}
 
-	//Create hooks
+	// Create hooks
 	hooks := hooks.NewStreamPredictionHooks(
 		crdClient,
 		resourceClients,

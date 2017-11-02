@@ -154,7 +154,7 @@ func (h *StreamPredictionHooks) addResources(streamPredict *crv1.StreamPredictio
 			return err
 		}
 	}
-	glog.Info("resource creation complete for stream prediction \"%s\"", streamPredict.Name())
+	glog.Infof("resource creation complete for stream prediction \"%s\"", streamPredict.Name())
 	return nil
 }
 

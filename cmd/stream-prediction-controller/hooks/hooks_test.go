@@ -22,6 +22,10 @@ type testResourceClient struct {
 	deleteCalled   bool
 }
 
+func (trc *testResourceClient) Reify(templateData interface{}) ([]byte, error) {
+	return nil, nil
+}
+
 func (trc *testResourceClient) Create(namespace string, templateData interface{}) error {
 	trc.createCalled = true
 
