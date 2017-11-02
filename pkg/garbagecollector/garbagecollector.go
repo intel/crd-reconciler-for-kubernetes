@@ -20,8 +20,10 @@ import (
 	"github.com/golang/glog"
 )
 
-// GarbageCollector deletes any orphaned and dangling sub-resources. It also
-// rolls-up error state of the sub-resource to the custom resource.
+// GarbageCollector does the following:
+// - deletes any orphaned and dangling sub-resources
+// - rolls-up error state of the sub-resource to the custom resource
+// - re-creates missing sub-resources
 type GarbageCollector struct {
 	namespace       string
 	gvk             schema.GroupVersionKind
@@ -191,12 +193,12 @@ func (gc *GarbageCollector) processResource(resourceClient resource.Client, reso
 }
 
 func (gc *GarbageCollector) handleErrors(resourceClient resource.Client, cr crd.CustomResource, rObj metav1.Object) {
-	// If the custom resource is in an error state, delete the
+	// If the custom resource is in a terminal state, delete the
 	// sub-resource.
-	if cr.GetStatusState() == cr.GetErrorState() {
+	if cr.IsTerminal() {
 		err := resourceClient.Delete(rObj.GetNamespace(), rObj.GetName())
 		if err != nil {
-			glog.Errorf("[crd-gc] error deleting failed deployment sub-resource: %v", err)
+			glog.Errorf("[crd-gc] error deleting failed sub-resource: %v", err)
 			return
 		}
 	}

@@ -60,17 +60,27 @@ func (e *Example) JSON() (string, error) {
 	return string(data), nil
 }
 
-func (s *Example) GetStatusState() states.State {
-	return s.Status.State
+func (e *Example) GetStatusState() states.State {
+	return e.Status.State
 }
 
-func (s *Example) SetStatusStateWithMessage(state states.State, msg string) {
-	s.Status.State = state
-	s.Status.Message = msg
+func (e *Example) SetStatusStateWithMessage(state states.State, msg string) {
+	e.Status.State = state
+	e.Status.Message = msg
 }
 
-func (s *Example) GetErrorState() states.State {
+func (e *Example) GetErrorState() states.State {
 	return StateError
+}
+
+var terminalStates = map[states.State]struct{}{
+	StateError:     {},
+	StateProcessed: {},
+}
+
+func (e *Example) IsTerminal() bool {
+	_, isElement := terminalStates[e.Status.State]
+	return isElement
 }
 
 type ExampleSpec struct {
@@ -86,7 +96,7 @@ type ExampleStatus struct {
 const (
 	StateCreated   states.State = "Created"
 	StateProcessed states.State = "Processed"
-	StateError     states.State = "Processed"
+	StateError     states.State = "Error"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

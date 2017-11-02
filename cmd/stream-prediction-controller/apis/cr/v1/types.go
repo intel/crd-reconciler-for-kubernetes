@@ -86,6 +86,16 @@ func (s *StreamPrediction) GetErrorState() states.State {
 	return Error
 }
 
+var terminalStates = map[states.State]struct{}{
+	Error:     {},
+	Completed: {},
+}
+
+func (s *StreamPrediction) IsTerminal() bool {
+	_, isElement := terminalStates[s.Status.State]
+	return isElement
+}
+
 // StreamPredictionState is the current job state.
 type StreamPredictionState string
 
