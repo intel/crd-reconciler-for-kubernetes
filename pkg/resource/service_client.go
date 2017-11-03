@@ -103,6 +103,10 @@ func (c *serviceClient) List(namespace string) (result runtime.Object, err error
 	return result, err
 }
 
+func (c *serviceClient) IsEphemeral() bool {
+	return true
+}
+
 func (c *serviceClient) Plural() string {
 	return c.resourcePluralForm
 }

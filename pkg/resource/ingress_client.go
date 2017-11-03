@@ -103,6 +103,10 @@ func (c *ingressClient) List(namespace string) (result runtime.Object, err error
 	return result, err
 }
 
+func (c *ingressClient) IsEphemeral() bool {
+	return true
+}
+
 func (c *ingressClient) Plural() string {
 	return c.resourcePluralForm
 }

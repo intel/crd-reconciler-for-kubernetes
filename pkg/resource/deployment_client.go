@@ -111,6 +111,10 @@ func (c *deploymentClient) List(namespace string) (result runtime.Object, err er
 	return result, err
 }
 
+func (c *deploymentClient) IsEphemeral() bool {
+	return false
+}
+
 func (c *deploymentClient) Plural() string {
 	return c.resourcePluralForm
 }

@@ -103,6 +103,10 @@ func (c *hpaClient) List(namespace string) (result runtime.Object, err error) {
 	return result, err
 }
 
+func (c *hpaClient) IsEphemeral() bool {
+	return true
+}
+
 func (c *hpaClient) Plural() string {
 	return c.resourcePluralForm
 }

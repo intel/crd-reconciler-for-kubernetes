@@ -66,50 +66,8 @@ func (gc *GarbageCollector) processResourceList() {
 			glog.Errorf("[crd-gc] error listing sub-resource: %v", err)
 			continue
 		}
-
-		switch resourceClient.Plural() {
-		case "deployments":
-			rList, ok := resourceList.(*v1beta1.DeploymentList)
-			if !ok {
-				glog.Errorf("[crd-gc] assertion error. expected metav1.List but got %T", resourceList)
-				continue
-			}
-
-			for _, resource := range rList.Items {
-				gc.processResource(resourceClient, &resource)
-			}
-		case "services":
-			rList, ok := resourceList.(*corev1.ServiceList)
-			if !ok {
-				glog.Errorf("[crd-gc] assertion error. expected metav1.List but got %T", resourceList)
-				continue
-			}
-
-			for _, resource := range rList.Items {
-				gc.processResource(resourceClient, &resource)
-			}
-		case "ingresses":
-			rList, ok := resourceList.(*v1beta1.IngressList)
-			if !ok {
-				glog.Errorf("[crd-gc] assertion error. expected metav1.List but got %T", resourceList)
-				continue
-			}
-
-			for _, resource := range rList.Items {
-				gc.processResource(resourceClient, &resource)
-			}
-		case "horizontalpodautoscalers":
-			rList, ok := resourceList.(*autoscalingv1.HorizontalPodAutoscalerList)
-			if !ok {
-				glog.Errorf("[crd-gc] assertion error. expected metav1.List but got %T", resourceList)
-				continue
-			}
-
-			for _, resource := range rList.Items {
-				gc.processResource(resourceClient, &resource)
-			}
-		default:
-			glog.Errorf("unexpected sub-resource list type (plural: %v)", resourceClient.Plural())
+		for _, resource := range rList.Items {
+			gc.processResource(resourceClient, &resource)
 		}
 	}
 }
@@ -206,6 +164,16 @@ func (gc *GarbageCollector) handleErrors(resourceClient resource.Client, cr crd.
 	// If the sub-resource is a deployment and is in a failed state,
 	// delete the sub-resource and set the controlling custom resource
 	// to error state.
+	/*
+		if resourceClient.IsFailed() {
+			if !resourceClient.IsEphemeral() {
+				// update custom resource to error state
+				// return
+			}
+			// recreate the sub-resource
+		}
+	*/
+
 	switch resourceClient.Plural() {
 	case "deployments":
 		// Get the deployment sub-resource.
