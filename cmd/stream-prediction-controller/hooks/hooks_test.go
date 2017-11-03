@@ -46,12 +46,20 @@ func (trc *testResourceClient) Get(namespace, name string) (result runtime.Objec
 	return result, err
 }
 
-func (trc *testResourceClient) List(namespace string) (result runtime.Object, err error) {
+func (trc *testResourceClient) List(namespace string) (result []runtime.Object, err error) {
 	return
 }
 
 func (trc *testResourceClient) Plural() string {
 	return "fakePlural"
+}
+
+func (trc *testResourceClient) IsFailed(namespace string, name string) bool {
+	return false
+}
+
+func (trc *testResourceClient) IsEphemeral() bool {
+	return true
 }
 
 type testCRDClient struct{}

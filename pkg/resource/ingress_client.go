@@ -90,17 +90,25 @@ func (c *ingressClient) Get(namespace, name string) (result runtime.Object, err 
 	return result, err
 }
 
-func (c *ingressClient) List(namespace string) (result runtime.Object, err error) {
-	result = &v1beta1.IngressList{}
+func (c *ingressClient) List(namespace string) (result []runtime.Object, err error) {
+	list := &v1beta1.IngressList{}
 	opts := metav1.ListOptions{}
 	err = c.restClient.Get().
 		Namespace(namespace).
 		Resource(c.resourcePluralForm).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Do().
-		Into(result)
+		Into(list)
 
-	return result, err
+	if err != nil {
+		return []runtime.Object{}, err
+	}
+
+	for _, item := range list.Items {
+		result = append(result, &item)
+	}
+
+	return
 }
 
 func (c *ingressClient) IsEphemeral() bool {
@@ -109,4 +117,8 @@ func (c *ingressClient) IsEphemeral() bool {
 
 func (c *ingressClient) Plural() string {
 	return c.resourcePluralForm
+}
+
+func (c *ingressClient) IsFailed(namespace string, name string) bool {
+	return false
 }

@@ -98,17 +98,25 @@ func (c *deploymentClient) Get(namespace, name string) (result runtime.Object, e
 	return result, err
 }
 
-func (c *deploymentClient) List(namespace string) (result runtime.Object, err error) {
-	result = &v1beta1.DeploymentList{}
+func (c *deploymentClient) List(namespace string) (result []runtime.Object, err error) {
+	list := &v1beta1.DeploymentList{}
 	opts := metav1.ListOptions{}
 	err = c.restClient.Get().
 		Namespace(namespace).
 		Resource(c.resourcePluralForm).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Do().
-		Into(result)
+		Into(list)
 
-	return result, err
+	if err != nil {
+		return []runtime.Object{}, err
+	}
+
+	for _, item := range list.Items {
+		result = append(result, &item)
+	}
+
+	return
 }
 
 func (c *deploymentClient) IsEphemeral() bool {
@@ -117,4 +125,8 @@ func (c *deploymentClient) IsEphemeral() bool {
 
 func (c *deploymentClient) Plural() string {
 	return c.resourcePluralForm
+}
+
+func (c *deploymentClient) IsFailed(namespace string, name string) bool {
+	return false
 }

@@ -90,17 +90,25 @@ func (c *serviceClient) Get(namespace, name string) (result runtime.Object, err 
 	return result, err
 }
 
-func (c *serviceClient) List(namespace string) (result runtime.Object, err error) {
-	result = &corev1.ServiceList{}
+func (c *serviceClient) List(namespace string) (result []runtime.Object, err error) {
+	list := &corev1.ServiceList{}
 	opts := metav1.ListOptions{}
 	err = c.restClient.Get().
 		Namespace(namespace).
 		Resource(c.resourcePluralForm).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Do().
-		Into(result)
+		Into(list)
 
-	return result, err
+	if err != nil {
+		return []runtime.Object{}, err
+	}
+
+	for _, item := range list.Items {
+		result = append(result, &item)
+	}
+
+	return
 }
 
 func (c *serviceClient) IsEphemeral() bool {
@@ -109,4 +117,8 @@ func (c *serviceClient) IsEphemeral() bool {
 
 func (c *serviceClient) Plural() string {
 	return c.resourcePluralForm
+}
+
+func (c *serviceClient) IsFailed(namespace string, name string) bool {
+	return false
 }

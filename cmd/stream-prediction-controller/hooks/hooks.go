@@ -41,7 +41,7 @@ func (h *StreamPredictionHooks) Add(obj interface{}) {
 	streamPredict := streamCrd.DeepCopy()
 
 	// If created with a terminal desired state. We immediately change the stream prediction into that status.
-	if (streamPredict.Spec.State == crv1.Error) || (streamPredict.Spec.State == crv1.Completed) {
+	if streamCrd.IsSpecTerminal() {
 		streamPredict.Status = crv1.StreamPredictionStatus{
 			State:   streamCrd.Spec.State,
 			Message: "Added. Detected in desired terminal state and controller marked stream prediction as " + string(streamCrd.Spec.State),

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -61,13 +59,14 @@ func (gc *GarbageCollector) runGCLoop() {
 
 func (gc *GarbageCollector) processResourceList() {
 	for _, resourceClient := range gc.resourceClients {
-		resourceList, err := resourceClient.List(gc.namespace)
+		resources, err := resourceClient.List(gc.namespace)
 		if err != nil {
 			glog.Errorf("[crd-gc] error listing sub-resource: %v", err)
 			continue
 		}
-		for _, resource := range rList.Items {
-			gc.processResource(resourceClient, &resource)
+
+		for _, resource := range resources {
+			gc.processResource(resourceClient, resource)
 		}
 	}
 }

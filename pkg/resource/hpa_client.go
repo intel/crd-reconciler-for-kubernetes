@@ -90,17 +90,25 @@ func (c *hpaClient) Get(namespace, name string) (result runtime.Object, err erro
 	return result, err
 }
 
-func (c *hpaClient) List(namespace string) (result runtime.Object, err error) {
-	result = &autoscalingv1.HorizontalPodAutoscalerList{}
+func (c *hpaClient) List(namespace string) (result []runtime.Object, err error) {
+	list := &autoscalingv1.HorizontalPodAutoscalerList{}
 	opts := metav1.ListOptions{}
 	err = c.restClient.Get().
 		Namespace(namespace).
 		Resource(c.resourcePluralForm).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Do().
-		Into(result)
+		Into(list)
 
-	return result, err
+	if err != nil {
+		return []runtime.Object{}, err
+	}
+
+	for _, item := range list.Items {
+		result = append(result, &item)
+	}
+
+	return
 }
 
 func (c *hpaClient) IsEphemeral() bool {
@@ -109,4 +117,8 @@ func (c *hpaClient) IsEphemeral() bool {
 
 func (c *hpaClient) Plural() string {
 	return c.resourcePluralForm
+}
+
+func (c *hpaClient) IsFailed(namespace string, name string) bool {
+	return false
 }
