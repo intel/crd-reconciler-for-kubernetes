@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/api/extensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -71,7 +69,7 @@ func (gc *GarbageCollector) processResourceList() {
 	}
 }
 
-func (gc *GarbageCollector) processResource(resourceClient resource.Client, resource runtime.Object) {
+func (gc *GarbageCollector) processResource(resourceClient resource.Client, resource metav1.Object) {
 	// Get a meta.Interface object for the resource.
 	rObj, err := meta.Accessor(resource)
 	if err != nil {
@@ -150,9 +148,9 @@ func (gc *GarbageCollector) processResource(resourceClient resource.Client, reso
 }
 
 func (gc *GarbageCollector) handleErrors(resourceClient resource.Client, cr crd.CustomResource, rObj metav1.Object) {
-	// If the custom resource is in a terminal state, delete the
-	// sub-resource.
-	if cr.IsTerminal() {
+	// If the custom resource is in a terminal state, or the desired state is
+	// terminal, delete the sub-resource.
+	if cr.IsSpecTerminal() || cr.IsStatusTerminal() {
 		err := resourceClient.Delete(rObj.GetNamespace(), rObj.GetName())
 		if err != nil {
 			glog.Errorf("[crd-gc] error deleting failed sub-resource: %v", err)
@@ -160,83 +158,27 @@ func (gc *GarbageCollector) handleErrors(resourceClient resource.Client, cr crd.
 		}
 	}
 
-	// If the sub-resource is a deployment and is in a failed state,
-	// delete the sub-resource and set the controlling custom resource
-	// to error state.
-	/*
-		if resourceClient.IsFailed() {
-			if !resourceClient.IsEphemeral() {
-				// update custom resource to error state
-				// return
-			}
-			// recreate the sub-resource
-		}
-	*/
-
-	switch resourceClient.Plural() {
-	case "deployments":
-		// Get the deployment sub-resource.
-		currResourceObj, err := resourceClient.Get(rObj.GetNamespace(), rObj.GetName())
-		if err != nil {
-			glog.Errorf("[crd-gc] error getting deployment sub-resource [%v, %v]: %v",
-				rObj.GetName(), rObj.GetNamespace(), err)
-			return
-		}
-
-		deployment, ok := currResourceObj.(*v1beta1.Deployment)
-		if !ok {
-			glog.Errorf("[crd-gc] assertion error. expected Deployment but got %T",
-				currResourceObj)
-			return
-		}
-
-		// If the deletion timestamp is set, there is nothing to do.
-		// TODO: Check if the deployment should exist according to the
-		// controlling custom resource's state and re-create it if required.
-		if deployment.DeletionTimestamp != nil {
-			return
-		}
-
-		// If the deploment has failed, set the controlling custom
-		// resource to error state with a message and delete the
-		// sub-resource.
-		if hasDeploymentFailed(deployment.Status) {
-			// Set the custom resource state to error with a message
-			// and update the custom resource.
-			msg := fmt.Sprintf("sub-resoure [%v, %v] is in a failed state",
-				rObj.GetName(), rObj.GetNamespace())
-			cr.SetStatusStateWithMessage(cr.GetErrorState(), msg)
-			if _, err := gc.crdClient.Update(cr); err != nil {
-				glog.Errorf("error updating cr [%v, %v] status after sub-resource failure [msg: %v]: %v",
-					cr.Name(), cr.Namespace(), msg, err)
-			}
-		}
-	default:
+	// If the deletion timestamp is set, there is nothing to do.
+	if rObj.GetDeletionTimestamp() != nil {
 		return
 	}
-}
 
-func hasDeploymentFailed(depStatus v1beta1.DeploymentStatus) bool {
-	if len(depStatus.Conditions) == 0 {
-		return false
-	}
-
-	if getLatestDeploymentCondition(depStatus.Conditions).Type == v1beta1.DeploymentReplicaFailure {
-		return true
-	}
-
-	return false
-}
-
-func getLatestDeploymentCondition(conditions []v1beta1.DeploymentCondition) v1beta1.DeploymentCondition {
-	latestCondition := conditions[0]
-	for i := range conditions {
-		time1 := &latestCondition.LastUpdateTime
-		time2 := &conditions[i].LastUpdateTime
-		if time1.Before(time2) {
-			latestCondition = conditions[i]
+	if resourceClient.IsFailed(rObj.GetNamespace(), rObj.GetName()) {
+		// Check whether this sub-resource is re-creatable
+		if !resourceClient.IsEphemeral() {
+			// Set the custom resource state to error with a message
+			// and update the custom resource.
+			msg := fmt.Sprintf("sub-resoure [%v, %v] is in a failed state", rObj.GetName(), rObj.GetNamespace())
+			cr.SetStatusStateWithMessage(cr.GetErrorState(), msg)
+			if _, err := gc.crdClient.Update(cr); err != nil {
+				glog.Errorf("error updating cr [%v, %v] status after sub-resource failure [msg: %v]: %v", cr.Name(), cr.Namespace(), msg, err)
+			}
+			return
+		}
+		// Otherwise, delete the sub-resource.
+		// TODO(CD): Re-create missing sub-resources.
+		if err := gc.crdClient.Delete(rObj.GetNamespace(), rObj.GetName()); err != nil {
+			glog.Errorf("error deleting failed sub-resource [%v, %v]: %v", cr.Name(), cr.Namespace(), err)
 		}
 	}
-
-	return latestCondition
 }

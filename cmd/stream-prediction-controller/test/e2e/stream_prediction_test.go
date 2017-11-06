@@ -367,5 +367,5 @@ func waitForStreamPredictionInstanceProcessed(crdClient crd.Client, namespace st
 }
 
 func waitPoll(waitFunc func() (bool, error)) error {
-	return wait.Poll(1*time.Second, 20*time.Second, waitFunc)
+	return wait.Poll(1*time.Second, 30*time.Second, waitFunc)
 }

@@ -98,7 +98,7 @@ func (c *deploymentClient) Get(namespace, name string) (result runtime.Object, e
 	return result, err
 }
 
-func (c *deploymentClient) List(namespace string) (result []runtime.Object, err error) {
+func (c *deploymentClient) List(namespace string) (result []metav1.Object, err error) {
 	list := &v1beta1.DeploymentList{}
 	opts := metav1.ListOptions{}
 	err = c.restClient.Get().
@@ -109,7 +109,7 @@ func (c *deploymentClient) List(namespace string) (result []runtime.Object, err 
 		Into(list)
 
 	if err != nil {
-		return []runtime.Object{}, err
+		return result, err
 	}
 
 	for _, item := range list.Items {
@@ -128,5 +128,27 @@ func (c *deploymentClient) Plural() string {
 }
 
 func (c *deploymentClient) IsFailed(namespace string, name string) bool {
-	return false
+	d, err := c.Get(namespace, name)
+	if err != nil {
+		return false
+	}
+	dep, ok := d.(*v1beta1.Deployment)
+	if !ok {
+		panic("object was not a *v1beta1.Deployment")
+	}
+	conditions := dep.Status.Conditions
+	if len(conditions) == 0 {
+		return false
+	}
+
+	latestCondition := conditions[0]
+	for i := range conditions {
+		time1 := &latestCondition.LastUpdateTime
+		time2 := &conditions[i].LastUpdateTime
+		if time1.Before(time2) {
+			latestCondition = conditions[i]
+		}
+	}
+
+	return latestCondition.Type == v1beta1.DeploymentReplicaFailure
 }

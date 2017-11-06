@@ -90,7 +90,7 @@ func (c *ingressClient) Get(namespace, name string) (result runtime.Object, err 
 	return result, err
 }
 
-func (c *ingressClient) List(namespace string) (result []runtime.Object, err error) {
+func (c *ingressClient) List(namespace string) (result []metav1.Object, err error) {
 	list := &v1beta1.IngressList{}
 	opts := metav1.ListOptions{}
 	err = c.restClient.Get().
@@ -101,7 +101,7 @@ func (c *ingressClient) List(namespace string) (result []runtime.Object, err err
 		Into(list)
 
 	if err != nil {
-		return []runtime.Object{}, err
+		return []metav1.Object{}, err
 	}
 
 	for _, item := range list.Items {

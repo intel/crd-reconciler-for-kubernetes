@@ -78,18 +78,24 @@ var terminalStates = map[states.State]struct{}{
 	StateProcessed: {},
 }
 
-func (e *Example) IsTerminal() bool {
+func (e *Example) IsSpecTerminal() bool {
+	_, isElement := terminalStates[e.Spec.State]
+	return isElement
+}
+
+func (e *Example) IsStatusTerminal() bool {
 	_, isElement := terminalStates[e.Status.State]
 	return isElement
 }
 
 type ExampleSpec struct {
-	Foo string `json:"foo"`
-	Bar bool   `json:"bar"`
+	State states.State `json:"state"`
+	Foo   string       `json:"foo"`
+	Bar   bool         `json:"bar"`
 }
 
 type ExampleStatus struct {
-	State   states.State `json:"state,omitempty"`
+	State   states.State `json:"state"`
 	Message string       `json:"message,omitempty"`
 }
 

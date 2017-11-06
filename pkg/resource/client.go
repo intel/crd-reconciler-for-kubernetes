@@ -1,6 +1,7 @@
 package resource
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -16,7 +17,7 @@ type Client interface {
 	// Get retrieves the object.
 	Get(namespace, name string) (runtime.Object, error)
 	// List lists objects based on group, version and kind.
-	List(namespace string) ([]runtime.Object, error)
+	List(namespace string) ([]metav1.Object, error)
 	// IsFailed returns true if this resource is in a broken state.
 	IsFailed(namespace string, name string) bool
 	// Plural returns the plural form of the resource.

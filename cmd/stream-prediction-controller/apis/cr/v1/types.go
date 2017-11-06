@@ -91,7 +91,12 @@ var terminalStates = map[states.State]struct{}{
 	Completed: {},
 }
 
-func (s *StreamPrediction) IsTerminal() bool {
+func (s *StreamPrediction) IsSpecTerminal() bool {
+	_, isElement := terminalStates[s.Spec.State]
+	return isElement
+}
+
+func (s *StreamPrediction) IsStatusTerminal() bool {
 	_, isElement := terminalStates[s.Status.State]
 	return isElement
 }
