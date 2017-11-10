@@ -24,6 +24,16 @@ services:
       - "kubernetes"
     privileged: true # required for debugging
 
+  model-training-controller:
+    image: "model-training-controller"
+    command: "sh -c \"/go/src/github.com/NervanaSystems/kube-controllers-go/resources/wait-port kubernetes 8080 && /go/bin/model-training-controller --kubeconfig=/root/.kube/config --namespace=e2e-test --v=4\""
+    volumes:
+      - ./resources:/root/.kube
+      - ./cmd/model-training-controller/resources:/etc/modeltrainings
+    depends_on:
+      - "kubernetes"
+    privileged: true # required for debugging
+
   example-controller:
     image: "example-controller"
     depends_on:

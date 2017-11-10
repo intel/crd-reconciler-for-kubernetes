@@ -26,10 +26,13 @@ docker:
 		-t $(IMAGE_NAME):$(VERSION) \
 		-t $(IMAGE_NAME):latest .
 
-controllers: stream-prediction example
+controllers: stream-prediction model-training example
 
 stream-prediction:
 	(cd cmd/stream-prediction-controller && make)
+
+model-training:
+	(cd cmd/model-training-controller && make)
 
 example:
 	(cd cmd/example-controller && make)
@@ -80,6 +83,10 @@ push-images:
 		  GOOGLE_AUTH=$(GOOGLE_AUTH) \
 		  GOOGLE_PROJECT_ID=$(GOOGLE_PROJECT_ID))
 	@ (cd cmd/stream-prediction-controller && \
+		make push-image \
+		  GOOGLE_AUTH=$(GOOGLE_AUTH) \
+		  GOOGLE_PROJECT_ID=$(GOOGLE_PROJECT_ID))
+	@ (cd cmd/model-training-controller && \
 		make push-image \
 		  GOOGLE_AUTH=$(GOOGLE_AUTH) \
 		  GOOGLE_PROJECT_ID=$(GOOGLE_PROJECT_ID))
