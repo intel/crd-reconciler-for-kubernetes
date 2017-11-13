@@ -1,6 +1,15 @@
 all: validate
 
-validate:
+validate: validate_stream_prediction validate_model_training
+
+validate_model_training:
+	# Positive tests
+	jsonschema -i examples/model-training-job-valid-1.json model-training-job-spec.json
+
+	# Negative tests
+	(jsonschema -i examples/model-training-job-invalid-1.json model-training-job-spec.json 2> /dev/null ; test $$? -eq 1)
+
+validate_stream_prediction:
 	# Positive tests
 	jsonschema -i examples/stream-prediction-job-valid-1.json stream-prediction-job-spec.json
 
