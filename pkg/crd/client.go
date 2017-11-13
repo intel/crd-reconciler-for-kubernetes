@@ -25,7 +25,7 @@ const apiRoot = "/apis"
 type Client interface {
 	Create(crd CustomResource) error
 	Get(namespace string, name string) (runtime.Object, error)
-	Update(crd CustomResource) error
+	Update(crd CustomResource) (runtime.Object, error)
 	Delete(namespace string, name string) error
 	Validate(crd CustomResource) error
 	RESTClient() *rest.RESTClient
@@ -95,20 +95,26 @@ func (c *client) Get(namespace string, name string) (runtime.Object, error) {
 }
 
 // Update updates the CRD on the Kubernetes API server.
-func (c *client) Update(crd CustomResource) error {
+func (c *client) Update(crd CustomResource) (runtime.Object, error) {
 	if c.handle.SchemaURL != "" {
 		if err := c.Validate(crd); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return c.restClient.Put().
+	resp := c.restClient.Put().
 		Namespace(crd.Namespace()).
 		Resource(c.handle.Plural).
 		Name(crd.Name()).
 		Body(crd).
-		Do().
-		Error()
+		Do()
+
+	obj, err := resp.Get()
+	if err != nil {
+		return nil, err
+	}
+
+	return obj, resp.Error()
 }
 
 // Delete deletes the CRD from the Kubernetes API server.

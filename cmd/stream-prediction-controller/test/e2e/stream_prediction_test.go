@@ -150,7 +150,10 @@ func TestStreamPrediction(t *testing.T) {
 	// Right now it's in Deployed. Try changing it to Completed and check if all the resources are deleted.
 	refresh(t, copy, crdClient)
 	copy.Spec.State = crv1.Completed
-	require.Nil(t, crdClient.Update(copy))
+
+	_, err = crdClient.Update(copy)
+	require.Nil(t, err)
+
 	refresh(t, copy, crdClient)
 	checkStreamState(t, copy, crdClient, streamName, k8sClient, NAMESPACE, crv1.Completed, false)
 

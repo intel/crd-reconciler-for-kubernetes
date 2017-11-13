@@ -14,6 +14,7 @@ import (
 	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/util"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/client-go/rest"
 )
 
 type testResourceClient struct {
@@ -53,27 +54,23 @@ func (trc *testResourceClient) Plural() string {
 	return "fakePlural"
 }
 
+type testCRDClient struct{}
+
+func (t *testCRDClient) Create(crd crd.CustomResource) error { return nil }
+
+func (t *testCRDClient) Get(namespace string, name string) (runtime.Object, error) {
+	return &crv1.StreamPrediction{}, nil
+}
+
+func (t *testCRDClient) Update(crd crd.CustomResource) (runtime.Object, error) {
+	return &crv1.StreamPrediction{}, nil
+}
+
+func (t *testCRDClient) Delete(namespace string, name string) error { return nil }
+func (t *testCRDClient) Validate(crd crd.CustomResource) error      { return nil }
+func (t *testCRDClient) RESTClient() *rest.RESTClient               { return nil }
+
 func TestStreampredictionHooks(t *testing.T) {
-	config, err := util.BuildConfig("/go/src/github.com/NervanaSystems/kube-controllers-go/resources/config")
-	assert.Nil(t, err)
-
-	crdHandle := crd.New(
-		&crv1.StreamPrediction{},
-		&crv1.StreamPredictionList{},
-		crv1.GroupName,
-		crv1.Version,
-		crv1.StreamPredictionResourceKind,
-		crv1.StreamPredictionResourceSingular,
-		crv1.StreamPredictionResourcePlural,
-		extv1beta1.NamespaceScoped,
-		"",
-	)
-
-	crdClient, err := crd.NewClient(*config, crdHandle)
-	if err != nil {
-		panic(err)
-	}
-
 	sp := &crv1.StreamPrediction{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "stream-foobar",
@@ -82,9 +79,7 @@ func TestStreampredictionHooks(t *testing.T) {
 			State:   crv1.Deploying,
 			Message: "Created, not processed",
 		},
-		Spec: crv1.StreamPredictionSpec{
-			State: crv1.Deployed,
-		},
+		Spec: crv1.StreamPredictionSpec{},
 	}
 
 	fsm := states.NewFSM(
@@ -104,7 +99,7 @@ func TestStreampredictionHooks(t *testing.T) {
 	foo := &testResourceClient{createWillFail: false}
 	bar := &testResourceClient{createWillFail: false}
 
-	hooks := NewStreamPredictionHooks(crdClient, []resource.Client{foo, bar}, fsm)
+	hooks := NewStreamPredictionHooks(&testCRDClient{}, []resource.Client{foo, bar}, fsm)
 
 	hooks.Add(sp)
 
@@ -120,14 +115,12 @@ func TestStreampredictionHooks(t *testing.T) {
 	foo = &testResourceClient{createWillFail: true}
 	bar = &testResourceClient{createWillFail: false}
 
-	hooks = NewStreamPredictionHooks(crdClient, []resource.Client{foo, bar}, fsm)
+	hooks = NewStreamPredictionHooks(&testCRDClient{}, []resource.Client{foo, bar}, fsm)
 
 	hooks.Add(sp)
 
 	assert.True(t, foo.createCalled)
 	assert.False(t, bar.createCalled)
-	assert.True(t, foo.deleteCalled)
-	assert.True(t, bar.deleteCalled)
 
 	//
 	// Third test, if the second resource fails. The first one should have been
@@ -136,42 +129,17 @@ func TestStreampredictionHooks(t *testing.T) {
 	foo = &testResourceClient{createWillFail: false}
 	bar = &testResourceClient{createWillFail: true}
 
-	hooks = NewStreamPredictionHooks(crdClient, []resource.Client{foo, bar}, fsm)
+	hooks = NewStreamPredictionHooks(&testCRDClient{}, []resource.Client{foo, bar}, fsm)
 
 	hooks.Add(sp)
 
 	assert.True(t, foo.createCalled)
 	assert.True(t, bar.createCalled)
-	assert.True(t, foo.deleteCalled)
-	assert.True(t, bar.deleteCalled)
-
-	// Test invalid Add
-	newCRD := &crv1.StreamPrediction{
-		Spec: crv1.StreamPredictionSpec{
-			State: crv1.Deployed,
-		},
-		Status: crv1.StreamPredictionStatus{
-			State:   crv1.Deployed,
-			Message: "Deployed, all resources are up",
-		},
-	}
-
-	foo = &testResourceClient{createWillFail: false}
-	bar = &testResourceClient{createWillFail: false}
-
-	hooks = NewStreamPredictionHooks(crdClient, []resource.Client{foo, bar}, fsm)
-
-	hooks.Add(newCRD)
-
-	assert.False(t, foo.createCalled)
-	assert.False(t, bar.createCalled)
-	assert.False(t, foo.deleteCalled)
-	assert.False(t, bar.deleteCalled)
 
 	// Update Tests
 	// Check valid transitions
 	// Transition from:
-	// 1. Deployed --> Completed
+	// 1. Deployed -> Completed
 	// In this case, all the resources should get undeployed.
 	oldCRD := &crv1.StreamPrediction{
 		Status: crv1.StreamPredictionStatus{
@@ -179,7 +147,7 @@ func TestStreampredictionHooks(t *testing.T) {
 			Message: "Deployed, all resources are up",
 		},
 	}
-	newCRD = &crv1.StreamPrediction{
+	newCRD := &crv1.StreamPrediction{
 		Spec: crv1.StreamPredictionSpec{
 			State: crv1.Completed,
 		},
@@ -192,7 +160,7 @@ func TestStreampredictionHooks(t *testing.T) {
 	foo = &testResourceClient{createWillFail: false}
 	bar = &testResourceClient{createWillFail: false}
 
-	hooks = NewStreamPredictionHooks(crdClient, []resource.Client{foo, bar}, fsm)
+	hooks = NewStreamPredictionHooks(&testCRDClient{}, []resource.Client{foo, bar}, fsm)
 
 	hooks.Update(oldCRD, newCRD)
 
@@ -202,7 +170,7 @@ func TestStreampredictionHooks(t *testing.T) {
 	assert.True(t, bar.deleteCalled)
 
 	// Invalid state change check
-	// 2. Completed --> Error
+	// 2. Completed -> Error
 	// In this case, nothing should get called
 	oldCRD = &crv1.StreamPrediction{
 		Status: crv1.StreamPredictionStatus{
@@ -223,7 +191,7 @@ func TestStreampredictionHooks(t *testing.T) {
 	foo = &testResourceClient{createWillFail: false}
 	bar = &testResourceClient{createWillFail: false}
 
-	hooks = NewStreamPredictionHooks(crdClient, []resource.Client{foo, bar}, fsm)
+	hooks = NewStreamPredictionHooks(&testCRDClient{}, []resource.Client{foo, bar}, fsm)
 
 	hooks.Update(oldCRD, newCRD)
 
@@ -231,7 +199,6 @@ func TestStreampredictionHooks(t *testing.T) {
 	assert.False(t, bar.createCalled)
 	assert.False(t, foo.deleteCalled)
 	assert.False(t, bar.deleteCalled)
-
 }
 
 func TestSchemaValidation(t *testing.T) {

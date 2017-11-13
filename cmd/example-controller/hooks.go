@@ -24,7 +24,7 @@ func (c *exampleHooks) Add(obj interface{}) {
 		Message: "Successfully processed by controller",
 	}
 
-	err := c.crdClient.Update(exampleCopy)
+	_, err := c.crdClient.Update(exampleCopy)
 	if err != nil {
 		fmt.Printf("ERROR updating status: %v\n", err)
 	} else {

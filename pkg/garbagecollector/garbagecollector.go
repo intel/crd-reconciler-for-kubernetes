@@ -239,7 +239,7 @@ func (gc *GarbageCollector) handleErrors(resourceClient resource.Client, cr crd.
 			msg := fmt.Sprintf("sub-resoure [%v, %v] is in a failed state",
 				rObj.GetName(), rObj.GetNamespace())
 			cr.SetStatusStateWithMessage(cr.GetErrorState(), msg)
-			if err := gc.crdClient.Update(cr); err != nil {
+			if _, err := gc.crdClient.Update(cr); err != nil {
 				glog.Errorf("error updating cr [%v, %v] status after sub-resource failure [msg: %v]: %v",
 					cr.Name(), cr.Namespace(), msg, err)
 			}

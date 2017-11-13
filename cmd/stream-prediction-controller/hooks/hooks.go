@@ -1,6 +1,8 @@
 package hooks
 
 import (
+	"fmt"
+
 	"github.com/golang/glog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,91 +36,120 @@ func (h *StreamPredictionHooks) Add(obj interface{}) {
 		glog.Errorf("object received is not of type StreamPrediction %v", obj)
 		return
 	}
-	glog.V(4).Infof("add, got CRD: %v", streamCrd)
+	glog.Infof("add called, got CRD: %v", streamCrd)
 
 	streamPredict := streamCrd.DeepCopy()
 
-	if streamPredict.Spec.State != crv1.Deployed || streamPredict.Status.State != crv1.Deploying {
-		glog.Info("New stream spec is not in a deployed state and status is not in deploying state")
+	// If created with a terminal desired state. We immediately change the stream prediction into that status.
+	if (streamPredict.Spec.State == crv1.Error) || (streamPredict.Spec.State == crv1.Completed) {
 		streamPredict.Status = crv1.StreamPredictionStatus{
-			State:   crv1.Error,
-			Message: "Failed to deploy StreamPrediction",
+			State:   streamCrd.Spec.State,
+			Message: "Added. Detected in desired terminal state and controller marked stream prediction as " + string(streamCrd.Spec.State),
 		}
-		if err := h.crdClient.Update(streamPredict); err != nil {
-			glog.Infof("error updating status: %v\n", err)
-		}
+
+		h.crdClient.Update(streamPredict)
 		return
 	}
 
-	if err := h.addResources(streamPredict); err != nil {
-		// Delete all of the sub-resources.
-		h.deleteResources(streamPredict)
+	// Upon receipt of a new SP CR, we mark its status as `Deploying'.
+	streamPredict.Status = crv1.StreamPredictionStatus{
+		State:   crv1.Deploying,
+		Message: "Added. Beginning sub-resource deployment",
+	}
 
+	obj, err := h.crdClient.Update(streamPredict)
+	if err != nil {
+		fmt.Println(err)
+		glog.Warningf("error updating status for stream prediction %s: %v\n",
+			streamPredict.Spec.StreamDataSpec.StreamName, err)
+		return
+	}
+
+	// obj is the custom resource after the update happened i.e. contains the most recent
+	// resource version and just needs to be type cast back to a stream prediction object.
+	streamCrd, ok = obj.(*crv1.StreamPrediction)
+	if !ok {
+		glog.Errorf("object received is not of type StreamPrediction %v", obj)
+		return
+	}
+	streamPredict = streamCrd.DeepCopy()
+
+	glog.Infof("status updated for stream prediction %s:",
+		streamPredict.Spec.StreamDataSpec.StreamName,
+		streamPredict.Status.State)
+
+	// Next, we create its requisite sub-resources.
+	// If this creation fails, we mark the SP to be in an error state.
+	// We don't delete sub-resources here, as the Update handles an `Error'
+	// status.  This is due to there being multiple writers to a SP's status.
+	// E.g., the garbage collector / reconciler could also set a CR's status to
+	// `Error'.
+	err = h.addResources(streamPredict)
+	if err != nil {
 		streamPredict.Status = crv1.StreamPredictionStatus{
 			State:   crv1.Error,
-			Message: "Failed to deploy StreamPrediction",
+			Message: "Failed to deploy sub-resources",
 		}
-		if err = h.crdClient.Update(streamPredict); err != nil {
-			glog.Infof("error updating status: %v\n", err)
+		_, err := h.crdClient.Update(streamPredict)
+		if err != nil {
+			glog.Warningf(
+				"error updating status for stream prediction %s: %v\n",
+				streamPredict.Spec.StreamDataSpec.StreamName, err)
+			return
 		}
 		return
 	}
 
 	streamPredict.Status = crv1.StreamPredictionStatus{
 		State:   crv1.Deployed,
-		Message: "Deployed Sub-Resources",
+		Message: "Deployed sub-resources",
 	}
-	if err := h.crdClient.Update(streamPredict); err != nil {
-		glog.Infof("error updating status: %v\n", err)
+	_, err = h.crdClient.Update(streamPredict)
+	if err != nil {
+		glog.Warningf("error updating status: %s\n", err)
 		return
 	}
-	glog.Infof("updated status: %v\n", streamPredict)
+
+	glog.Infof("updated status: %s\n", streamPredict.Status.State)
 }
 
 // Update handles the update of a stream prediction object
-func (h *StreamPredictionHooks) Update(oldObj, newObj interface{}) {
+func (h *StreamPredictionHooks) Update(_, newObj interface{}) {
 	newStreamPredict, ok := newObj.(*crv1.StreamPrediction)
 	if !ok {
-		glog.Errorf("object received is not of type StreamPrediction %v", newObj)
+		glog.Errorf("object received is not of type StreamPrediction %v",
+			newObj)
 		return
 	}
 
-	oldStreamPredict, ok := oldObj.(*crv1.StreamPrediction)
-	if !ok {
-		glog.Errorf("object received is not of type StreamPrediction %v", oldObj)
-		return
-	}
-
-	if newStreamPredict.Spec.State == oldStreamPredict.Spec.State {
-		glog.Infof("Received an update of the same state. Old crd: %s, New crd: %s", oldStreamPredict, newStreamPredict)
-		return
-	}
-
-	if newStreamPredict.Spec.State == newStreamPredict.Status.State {
-		glog.Infof("Received an update in the same state: Old state %s, New state: %s", newStreamPredict.Status.State, newStreamPredict.Spec.State)
-		return
-	}
-
-	if !h.fsm.PathExists(newStreamPredict.Status.State, newStreamPredict.Spec.State) {
-		glog.Infof("Got an update to an invalid state. Current state: %v, requested state %v", oldStreamPredict.Status.State, newStreamPredict.Spec.State)
-		return
-	}
-
-	switch newStreamPredict.Spec.State {
-
-	case crv1.Completed:
-		glog.Infof("Got an update for completing the stream predict %v", newStreamPredict)
-		// Delete the subresources and update the status
+	// If the SP CR's spec has been updated to `Completed', then we delete
+	// subresources, and mark it as `Completed' in its status.
+	if newStreamPredict.Spec.State == crv1.Completed {
+		glog.Infof(
+			"stream prediction %s has been marked for undeployment",
+			newStreamPredict)
 		h.deleteResources(newStreamPredict)
 		newStreamPredict.Status = crv1.StreamPredictionStatus{
 			State:   crv1.Completed,
 			Message: "Stream Prediction completed",
 		}
-		if err := h.crdClient.Update(newStreamPredict); err != nil {
-			glog.Infof("error updating status: %v\n", err)
+		if _, err := h.crdClient.Update(newStreamPredict); err != nil {
+			glog.Warningf("error updating status: %v\n", err)
 			return
 		}
+		glog.Infof("Successfully deleted subresources")
+		return
+	}
+
+	// If the SP CR has been marked to be in an `Error' state, either by the
+	// sub-resource reconciler or during creation, we delete its sub-resources.
+	if newStreamPredict.Status.State == crv1.Error {
+		glog.Infof("stream prediction %s is in an error state, "+
+			"deleting subresources",
+			newStreamPredict.Spec.StreamDataSpec.StreamName)
+		h.deleteResources(newStreamPredict)
 		glog.Info("Successfully deleted subresources")
+		return
 	}
 }
 
