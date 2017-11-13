@@ -5,15 +5,13 @@ VERSION := $(shell git describe --tags --always --dirty)
 GOOGLE_PROJECT_ID=
 GOOGLE_AUTH=
 IMAGE_NAME=kube-controllers-go
-COV_THRESHOLD=80
 TARGET ?= test
 GODEBUGGER ?= gdb
 
 all: controllers
 
 test: lint validate-schemas
-	./scripts/test-with-cov.sh ./pkg/... $(COV_THRESHOLD)
-	go test ./pkg/...
+	go test --cover ./pkg/...
 
 dep:
 	docker build \

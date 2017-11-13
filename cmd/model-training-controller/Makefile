@@ -5,7 +5,6 @@ VERSION := $(shell git describe --tags --always --dirty)
 GOOGLE_PROJECT_ID=
 GOOGLE_AUTH=
 IMAGE_NAME=model-training-controller
-COV_THRESHOLD=80
 
 quick-docker:
 	docker build \
@@ -26,19 +25,11 @@ lint:
 	# annotations.
 	gometalinter --config=../../lint.json --disable=golint ./apis/...
 	gometalinter --config=../../lint.json ./hooks/...
-	gometalinter --config=../../lint.json ./test/...
 
 test: lint
-	# TODO(danielscottt): Once there are tests on these packages, enable the
-	# coverage checking.
-	# ../../scripts/test-with-cov.sh . $(COV_THRESHOLD)
-	go test .
-	# ../../scripts/test-with-cov.sh ./apis/cr/v1 $(COV_THRESHOLD)
-	go test ./apis/cr/v1
-	# ../../scripts/test-with-cov.sh ./apis/... $(COV_THRESHOLD)
-	go test ./apis/...
-	#  ../../scripts/test-with-cov.sh ./hooks/... $(COV_THRESHOLD)
-	go test ./hooks/...
+	go test --cover .
+	go test --cover ./apis/...
+	go test --cover ./hooks/...
 
 test-e2e:
 	go test -v ./test/e2e/...

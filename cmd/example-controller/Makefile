@@ -5,7 +5,6 @@ VERSION := $(shell git describe --tags --always --dirty)
 GOOGLE_PROJECT_ID=
 GOOGLE_AUTH=
 IMAGE_NAME=example-controller
-COV_THRESHOLD=80
 
 docker:
 	(cd ../../ && make docker)
@@ -19,12 +18,8 @@ lint:
 	gometalinter --config=lint.json ./apis/...
 
 test: lint
-	# TODO(danielscottt): Once there are tests on these packages, enable the
-	# coverage checking.
-	# ../../scripts/test-with-cov.sh . $(COV_THRESHOLD)
-	go test .
-	# ../../scripts/test-with-cov.sh ./apis/cr/v1 $(COV_THRESHOLD)
-	go test ./apis/cr/v1
+	go test --cover .
+	go test --cover ./apis/cr/v1
 
 code-generation:
 	/go/bin/deepcopy-gen --output-base=/go/src --input-dirs=github.com/NervanaSystems/kube-controllers-go/cmd/example-controller/apis/cr/v1/...
