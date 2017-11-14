@@ -24,6 +24,7 @@ import (
 func main() {
 	kubeconfig := flag.String("kubeconfig", "", "Path to a kubeconfig file")
 	namespace := flag.String("namespace", apiv1.NamespaceAll, "Namespace to monitor (Default all)")
+	jobTemplateFile := flag.String("jobFile", "/etc/modeltrainings/job.tmpl", "Path to a job template file")
 	schemaFile := flag.String("schema", "", "Path to a custom resource schema file")
 	flag.Set("logtostderr", "true")
 	flag.Parse()
@@ -38,8 +39,7 @@ func main() {
 		panic(err)
 	}
 
-	// k8sclientset, err := kubernetes.NewForConfig(config)
-	_, err = kubernetes.NewForConfig(config)
+	k8sclientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		panic(err)
 	}
@@ -69,7 +69,11 @@ func main() {
 		panic(err)
 	}
 
-	resourceClients := []resource.Client{}
+	globalTemplateValues := resource.GlobalTemplateValues{}
+
+	resourceClients := []resource.Client{
+		resource.NewJobClient(globalTemplateValues, k8sclientset, *jobTemplateFile),
+	}
 
 	// Create hooks
 	hooks := hooks.NewModelTrainingHooks(crdClient, resourceClients)

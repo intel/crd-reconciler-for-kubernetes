@@ -1,6 +1,8 @@
 package hooks
 
 import (
+	"fmt"
+
 	"github.com/golang/glog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +34,80 @@ func (h *ModelTrainingHooks) Add(obj interface{}) {
 		return
 	}
 	glog.V(4).Infof("Model Training add hook - got: %v", modelTrainingCrd)
+
+	modelTrain := modelTrainingCrd.DeepCopy()
+
+	// If created with a terminal desired state. We immediately change the model training into that status.
+	if (modelTrain.Spec.State == crv1.Failed) || (modelTrain.Spec.State == crv1.Completed) {
+		modelTrain.Status = crv1.ModelTrainingStatus{
+			State:   modelTrainingCrd.Spec.State,
+			Message: "Added. Detected in desired terminal state and controller marked model training as " + string(modelTrainingCrd.Spec.State),
+		}
+
+		h.crdClient.Update(modelTrain)
+		return
+	}
+
+	// Upon receipt of a new model training CR, we mark its status as `Pending'.
+	modelTrain.Status = crv1.ModelTrainingStatus{
+		State:   crv1.Pending,
+		Message: "Added. Beginning sub-resource deployment",
+	}
+
+	obj, err := h.crdClient.Update(modelTrain)
+	if err != nil {
+		fmt.Println(err)
+		glog.Warningf("error updating status for model training %s: %v\n",
+			modelTrain.ObjectMeta.Name, err)
+		return
+	}
+
+	// obj is the custom resource after the update happened i.e. contains the most recent
+	// resource version and just needs to be type cast back to a model training object.
+	modelTrainingCrd, ok = obj.(*crv1.ModelTraining)
+	if !ok {
+		glog.Errorf("object received is not of type ModelTraining %v", obj)
+		return
+	}
+	modelTrain = modelTrainingCrd.DeepCopy()
+
+	glog.Infof("status updated for model training %s:",
+		modelTrain.ObjectMeta.Name,
+		modelTrain.Status.State)
+
+	// Next, we create its requisite sub-resources.
+	// If this creation fails, we mark the CR to be in an error state.
+	// We don't delete sub-resources here, as the Update handles an `Failed'
+	// status.  This is due to there being multiple writers to a CR's status.
+	// E.g., the garbage collector / reconciler could also set a CR's status to
+	// `Failed'.
+	err = h.addResources(modelTrain)
+	if err != nil {
+		modelTrain.Status = crv1.ModelTrainingStatus{
+			State:   crv1.Failed,
+			Message: "Failed to deploy sub-resources",
+		}
+		_, err := h.crdClient.Update(modelTrain)
+		if err != nil {
+			glog.Warningf(
+				"error updating status for model training %s: %v\n",
+				modelTrain.ObjectMeta.Name, err)
+			return
+		}
+		return
+	}
+
+	modelTrain.Status = crv1.ModelTrainingStatus{
+		State:   crv1.Running,
+		Message: "Sub-resources have been deployed",
+	}
+	_, err = h.crdClient.Update(modelTrain)
+	if err != nil {
+		glog.Warningf("error updating status: %s\n", err)
+		return
+	}
+
+	glog.Infof("updated status: %s\n", modelTrain.Status.State)
 }
 
 // Update handles the update of a model training object
@@ -49,6 +125,36 @@ func (h *ModelTrainingHooks) Update(oldObj, newObj interface{}) {
 	}
 
 	glog.V(4).Infof("Model Training update hook - got old: %v new: %v", oldModelTraining, newModelTraining)
+
+	// If the CR's spec has been updated to `Completed', then we delete
+	// subresources, and mark it as `Completed' in its status.
+	if newModelTraining.Spec.State == crv1.Completed {
+		glog.Infof(
+			"model training %s has been marked for undeployment",
+			newModelTraining)
+		h.deleteResources(newModelTraining)
+		newModelTraining.Status = crv1.ModelTrainingStatus{
+			State:   crv1.Completed,
+			Message: "Model training completed",
+		}
+		if _, err := h.crdClient.Update(newModelTraining); err != nil {
+			glog.Warningf("error updating status: %v\n", err)
+			return
+		}
+		glog.Infof("Successfully deleted subresources for model training %s", newModelTraining)
+		return
+	}
+
+	// If the CR has been marked to be in an Failed state, either by the
+	// sub-resource reconciler or during creation, we delete its sub-resources.
+	if newModelTraining.Status.State == crv1.Failed {
+		glog.Infof("model training %s is in an error state, "+
+			"deleting subresources",
+			newModelTraining.ObjectMeta.Name)
+		h.deleteResources(newModelTraining)
+		glog.Infof("Successfully deleted subresources for model training %s", newModelTraining)
+		return
+	}
 }
 
 // Delete handles the deletion of a model training object

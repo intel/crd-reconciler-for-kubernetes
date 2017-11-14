@@ -48,6 +48,7 @@ services:
     depends_on:
       - "kubernetes"
       - "stream-prediction-controller"
+      - "model-training-controller"
     command: "sleep inf"
     volumes:
       - ./resources:/root/.kube

@@ -64,6 +64,11 @@ test-e2e: env-up
 	# environment.
 	docker-compose exec test kubectl delete streampredictions --all --namespace=e2e-test
 	docker-compose run stream-prediction-controller make test-e2e
+	# Run the model-training controller tests in a new container with
+	# the same configuration as the service, inside the docker-compose
+	# environment.
+	docker-compose exec test kubectl delete modeltrainings --all --namespace=e2e-test
+	docker-compose run model-training-controller make test-e2e
 
 install-linter:
 	go get github.com/alecthomas/gometalinter

@@ -91,20 +91,48 @@ var terminalStates = map[states.State]struct{}{
 	Completed: {},
 }
 
-func (s *ModelTraining) IsTerminal() bool {
+func (s *ModelTraining) IsSpecTerminal() bool {
+	_, isElement := terminalStates[s.Spec.State]
+	return isElement
+}
+
+func (s *ModelTraining) IsStatusTerminal() bool {
 	_, isElement := terminalStates[s.Status.State]
 	return isElement
 }
 
-// ModelTrainingState is the current job state.
-type ModelTrainingState string
-
 // ModelTrainingSpec is the spec for the crd.
 type ModelTrainingSpec struct {
-	ResourceSpec ResourceSpec `json:"resourceSpec"`
-	State        states.State `json:"state"`
+	JobID         string        `json:"jobID"`
+	TenantID      string        `json:"tenantID"`
+	ContainerSpec ContainerSpec `json:"containerSpec"`
+	SandboxS3URL  S3URL         `json:"sandboxS3URL"`
+	VolumeS3URLs  []S3URL       `json:"volumeS3URLs"`
+	Repositories  []Repository  `json:"repositories"`
+	MetricsURL    string        `json:"metricsURL"`
+	State         states.State  `json:"state"`
+	ResourceSpec  ResourceSpec  `json:"resourceSpec"`
 }
 
+// ContainerSpec is the commands that are required to run Neon training.
+type ContainerSpec struct {
+	Image        string `json:"image"`
+	SidecarImage string `json:"sidecarImage"`
+	NFLImage     string `json:"nflImage"`
+	Command      string `json:"command"`
+}
+
+// S3URL specifies an S3 URL.
+type S3URL string
+
+// Repository defines a repository.
+type Repository struct {
+	Name   string `json:"name"`
+	URL    string `json:"url"`
+	Commit string `json:"commit"`
+}
+
+// ResourceSpec defines the compute resources required.
 type ResourceSpec struct {
 	Requests map[string]resource.Quantity `json:"requests"`
 }
