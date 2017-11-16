@@ -3,6 +3,7 @@ package reconcile
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,6 +22,9 @@ import (
 // various self-healing and convergence actions. These include updating
 // the top-level custom resource status, re-creating missing subresources,
 // deleting orphaned subresources, et cetera.
+//
+// See the docs/reconciliation.md file for a detailed description of the
+// reconciliation policy.
 type Reconciler struct {
 	namespace       string
 	gvk             schema.GroupVersionKind
@@ -63,39 +67,47 @@ type action struct {
 }
 
 func (a action) String() string {
-	return fmt.Sprintf(`
-{
+	var sCreateNames []string
+	for _, s := range a.subresourcesToCreate {
+		sCreateNames = append(sCreateNames, s.client.Plural())
+	}
+	var sDeleteNames []string
+	for _, s := range a.subresourcesToDelete {
+		sDeleteNames = append(sDeleteNames, s.client.Plural())
+	}
+	return fmt.Sprintf(
+		`{
   newCRState: "%s",
   newCRReason: "%s",
-  numToCreate: %d,
-  numToDelete: %d
-}
-	`, a.newCRState,
+  subresourcesToCreate: "%s",
+  subresourcesToDelete: "%s"
+}`,
+		a.newCRState,
 		a.newCRReason,
-		len(a.subresourcesToCreate),
-		len(a.subresourcesToDelete))
+		strings.Join(sCreateNames, ", "),
+		strings.Join(sDeleteNames, ", "))
 }
 
 // Contains subresources grouped by their controlling resource.
 type subresourceMap map[string][]*subresource
 
 func (r *Reconciler) run() {
-	subsByController := r.groupSubresourcesByController()
-	for controllerName, subs := range subsByController {
-		todo, cr, err := r.planAction(controllerName, subs)
+	subresourcesByCR := r.groupSubresourcesByCustomResource()
+	for crName, subs := range subresourcesByCR {
+		a, cr, err := r.planAction(crName, subs)
 		if err != nil {
-			glog.Errorf(`failed to plan action for controller: [%s] subresources: [%v] error: [%s]`, controllerName, subsByController, err.Error())
+			glog.Errorf(`failed to plan action for custom resource: [%s] subresources: [%v] error: [%s]`, crName, subresourcesByCR, err.Error())
 			continue
 		}
-		glog.Infof("planned action: %s", todo.String())
-		errs := r.executeAction(controllerName, cr, todo)
+		glog.Infof("planned action: %s", a.String())
+		errs := r.executeAction(crName, cr, a)
 		if len(errs) > 0 {
-			glog.Errorf(`failed to execute action for controller: [%s] subresources: %v errors: %v`, controllerName, subsByController, errs)
+			glog.Errorf(`failed to execute action for custom resource: [%s] subresources: %v errors: %v`, crName, subresourcesByCR, errs)
 		}
 	}
 }
 
-func (r *Reconciler) groupSubresourcesByController() subresourceMap {
+func (r *Reconciler) groupSubresourcesByCustomResource() subresourceMap {
 	result := subresourceMap{}
 	for _, resourceClient := range r.resourceClients {
 		objects, err := resourceClient.List(r.namespace)
@@ -122,7 +134,7 @@ func (r *Reconciler) groupSubresourcesByController() subresourceMap {
 }
 
 func (r *Reconciler) planAction(controllerName string, subs []*subresource) (*action, crd.CustomResource, error) {
-	glog.V(4).Infof(`planning action for controller: [%s]`, controllerName)
+	glog.V(4).Infof("planning action for controller: [%s]", controllerName)
 
 	// If the controller name is empty, these are not our subresources;
 	// do nothing.
@@ -228,6 +240,9 @@ func (r *Reconciler) planAction(controllerName string, subs []*subresource) (*ac
 	// | Custom resource desired state | Sub-resource current state                 | Action                                  |
 	// |:------------------------------|:-------------------------------------------|:----------------------------------------|
 	// | Non-terminal                  | Terminal, Ephemeral                        | Recreate the sub-resource.              |
+
+	// Delete terminal ephemeral subresources. They will be recreated in a
+	// subsequent iteration when they are found not to exist.
 	subsToDelete := []*subresource{}
 	for _, sub := range subs {
 		subMeta, err := meta.Accessor(sub.object)
@@ -239,8 +254,6 @@ func (r *Reconciler) planAction(controllerName string, subs []*subresource) (*ac
 			// TODO(CD): Widen subresource terminal state detection to include
 			//           all terminal states.
 			if sub.client.IsFailed(r.namespace, cr.Name()) {
-				// Delete the subresource. It will be recreated in a subsequent
-				// iteration when it is found not to exist.
 				subsToDelete = append(subsToDelete, sub)
 			}
 		}
