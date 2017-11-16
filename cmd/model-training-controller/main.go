@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"time"
 
 	"github.com/golang/glog"
 
@@ -15,7 +16,7 @@ import (
 	"github.com/NervanaSystems/kube-controllers-go/cmd/model-training-controller/hooks"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/controller"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/crd"
-	"github.com/NervanaSystems/kube-controllers-go/pkg/garbagecollector"
+	"github.com/NervanaSystems/kube-controllers-go/pkg/reconcile"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/resource"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/util"
 )
@@ -73,14 +74,16 @@ func main() {
 	// Create hooks
 	hooks := hooks.NewModelTrainingHooks(crdClient, resourceClients)
 
-	// Start a controller for instances of our custom resource.
-	controller := controller.New(crdHandle, hooks, crdClient.RESTClient())
-	gc := garbagecollector.New(*namespace, crv1.GVK, crdHandle, crdClient, resourceClients)
-
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
+
+	// Start a controller for instances of our custom resource.
+	controller := controller.New(crdHandle, hooks, crdClient.RESTClient())
 	go controller.Run(ctx, *namespace)
-	go gc.Run(ctx)
+
+	// Start reconciliation in the background for subresource management.
+	reconciler := reconcile.New(*namespace, crv1.GVK, crdHandle, crdClient, resourceClients)
+	go reconciler.Run(ctx, 10*time.Second)
 
 	<-ctx.Done()
 }
