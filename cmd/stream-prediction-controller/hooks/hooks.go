@@ -17,15 +17,13 @@ import (
 type StreamPredictionHooks struct {
 	resourceClients []resource.Client
 	crdClient       crd.Client
-	fsm             *states.FSM
 }
 
 // NewStreamPredictionHooks creates and returns a new instance of the StreamPredictionHooks
-func NewStreamPredictionHooks(crdClient crd.Client, resourceClients []resource.Client, fsm *states.FSM) *StreamPredictionHooks {
+func NewStreamPredictionHooks(crdClient crd.Client, resourceClients []resource.Client) *StreamPredictionHooks {
 	return &StreamPredictionHooks{
 		resourceClients: resourceClients,
 		crdClient:       crdClient,
-		fsm:             fsm,
 	}
 }
 
@@ -41,7 +39,7 @@ func (h *StreamPredictionHooks) Add(obj interface{}) {
 	streamPredict := streamCrd.DeepCopy()
 
 	// If created with a terminal desired state. We immediately change the stream prediction into that status.
-	if streamCrd.IsSpecTerminal() {
+	if states.IsTerminal(streamCrd.GetSpecState()) {
 		streamPredict.Status = crv1.StreamPredictionStatus{
 			State:   streamCrd.Spec.State,
 			Message: "Added. Detected in desired terminal state and controller marked stream prediction as " + string(streamCrd.Spec.State),
@@ -51,9 +49,9 @@ func (h *StreamPredictionHooks) Add(obj interface{}) {
 		return
 	}
 
-	// Upon receipt of a new SP CR, we mark its status as `Deploying'.
+	// Upon receipt of a new SP CR, we mark its status as `Pending'.
 	streamPredict.Status = crv1.StreamPredictionStatus{
-		State:   crv1.Deploying,
+		State:   states.Pending,
 		Message: "Added. Beginning sub-resource deployment",
 	}
 
@@ -80,14 +78,14 @@ func (h *StreamPredictionHooks) Add(obj interface{}) {
 
 	// Next, we create its requisite sub-resources.
 	// If this creation fails, we mark the SP to be in an error state.
-	// We don't delete sub-resources here, as the Update handles an `Error'
+	// We don't delete sub-resources here, as the Update handles a `Failed'
 	// status.  This is due to there being multiple writers to a SP's status.
 	// E.g., the garbage collector / reconciler could also set a CR's status to
-	// `Error'.
+	// `Failed'.
 	err = h.addResources(streamPredict)
 	if err != nil {
 		streamPredict.Status = crv1.StreamPredictionStatus{
-			State:   crv1.Error,
+			State:   states.Failed,
 			Message: "Failed to deploy sub-resources",
 		}
 		_, err := h.crdClient.Update(streamPredict)
@@ -101,8 +99,8 @@ func (h *StreamPredictionHooks) Add(obj interface{}) {
 	}
 
 	streamPredict.Status = crv1.StreamPredictionStatus{
-		State:   crv1.Deployed,
-		Message: "Deployed sub-resources",
+		State:   states.Running,
+		Message: "Running sub-resources",
 	}
 	_, err = h.crdClient.Update(streamPredict)
 	if err != nil {
@@ -124,13 +122,13 @@ func (h *StreamPredictionHooks) Update(_, newObj interface{}) {
 
 	// If the SP CR's spec has been updated to `Completed', then we delete
 	// subresources, and mark it as `Completed' in its status.
-	if newStreamPredict.Spec.State == crv1.Completed {
+	if newStreamPredict.Spec.State == states.Completed {
 		glog.Infof(
 			"stream prediction %s has been marked for undeployment",
 			newStreamPredict)
 		h.deleteResources(newStreamPredict)
 		newStreamPredict.Status = crv1.StreamPredictionStatus{
-			State:   crv1.Completed,
+			State:   states.Completed,
 			Message: "Stream Prediction completed",
 		}
 		if _, err := h.crdClient.Update(newStreamPredict); err != nil {
@@ -141,9 +139,9 @@ func (h *StreamPredictionHooks) Update(_, newObj interface{}) {
 		return
 	}
 
-	// If the SP CR has been marked to be in an `Error' state, either by the
+	// If the SP CR has been marked to be in an `Failed' state, either by the
 	// sub-resource reconciler or during creation, we delete its sub-resources.
-	if newStreamPredict.Status.State == crv1.Error {
+	if newStreamPredict.Status.State == states.Failed {
 		glog.Infof("stream prediction %s is in an error state, "+
 			"deleting subresources",
 			newStreamPredict.Spec.StreamDataSpec.StreamName)

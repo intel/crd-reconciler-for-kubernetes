@@ -84,22 +84,11 @@ func TestStreampredictionHooks(t *testing.T) {
 			Name: "stream-foobar",
 		},
 		Status: crv1.StreamPredictionStatus{
-			State:   crv1.Deploying,
+			State:   states.Pending,
 			Message: "Created, not processed",
 		},
 		Spec: crv1.StreamPredictionSpec{},
 	}
-
-	fsm := states.NewFSM(
-		crv1.Deploying, crv1.Deployed,
-		crv1.Completed, crv1.Error,
-	)
-	fsm.SetAdj(crv1.Deploying, crv1.Error)
-	fsm.SetAdj(crv1.Deploying, crv1.Deployed)
-	fsm.SetAdj(crv1.Deploying, crv1.Completed)
-	fsm.SetAdj(crv1.Deployed, crv1.Error)
-	fsm.SetAdj(crv1.Deployed, crv1.Completed)
-
 	//
 	// First test, make sure the success case pass.
 	// Both resources should be created and delete should not be called.
@@ -107,7 +96,7 @@ func TestStreampredictionHooks(t *testing.T) {
 	foo := &testResourceClient{createWillFail: false}
 	bar := &testResourceClient{createWillFail: false}
 
-	hooks := NewStreamPredictionHooks(&testCRDClient{}, []resource.Client{foo, bar}, fsm)
+	hooks := NewStreamPredictionHooks(&testCRDClient{}, []resource.Client{foo, bar})
 
 	hooks.Add(sp)
 
@@ -123,7 +112,7 @@ func TestStreampredictionHooks(t *testing.T) {
 	foo = &testResourceClient{createWillFail: true}
 	bar = &testResourceClient{createWillFail: false}
 
-	hooks = NewStreamPredictionHooks(&testCRDClient{}, []resource.Client{foo, bar}, fsm)
+	hooks = NewStreamPredictionHooks(&testCRDClient{}, []resource.Client{foo, bar})
 
 	hooks.Add(sp)
 
@@ -137,7 +126,7 @@ func TestStreampredictionHooks(t *testing.T) {
 	foo = &testResourceClient{createWillFail: false}
 	bar = &testResourceClient{createWillFail: true}
 
-	hooks = NewStreamPredictionHooks(&testCRDClient{}, []resource.Client{foo, bar}, fsm)
+	hooks = NewStreamPredictionHooks(&testCRDClient{}, []resource.Client{foo, bar})
 
 	hooks.Add(sp)
 
@@ -147,28 +136,28 @@ func TestStreampredictionHooks(t *testing.T) {
 	// Update Tests
 	// Check valid transitions
 	// Transition from:
-	// 1. Deployed -> Completed
+	// 1. Running -> Completed
 	// In this case, all the resources should get undeployed.
 	oldCRD := &crv1.StreamPrediction{
 		Status: crv1.StreamPredictionStatus{
-			State:   crv1.Deployed,
-			Message: "Deployed, all resources are up",
+			State:   states.Running,
+			Message: "Running, all resources are up",
 		},
 	}
 	newCRD := &crv1.StreamPrediction{
 		Spec: crv1.StreamPredictionSpec{
-			State: crv1.Completed,
+			State: states.Completed,
 		},
 		Status: crv1.StreamPredictionStatus{
-			State:   crv1.Deployed,
-			Message: "Deployed, all resources are up",
+			State:   states.Running,
+			Message: "Running, all resources are up",
 		},
 	}
 
 	foo = &testResourceClient{createWillFail: false}
 	bar = &testResourceClient{createWillFail: false}
 
-	hooks = NewStreamPredictionHooks(&testCRDClient{}, []resource.Client{foo, bar}, fsm)
+	hooks = NewStreamPredictionHooks(&testCRDClient{}, []resource.Client{foo, bar})
 
 	hooks.Update(oldCRD, newCRD)
 
@@ -178,20 +167,20 @@ func TestStreampredictionHooks(t *testing.T) {
 	assert.True(t, bar.deleteCalled)
 
 	// Invalid state change check
-	// 2. Completed -> Error
+	// 2. Completed -> Failed
 	// In this case, nothing should get called
 	oldCRD = &crv1.StreamPrediction{
 		Status: crv1.StreamPredictionStatus{
-			State:   crv1.Completed,
+			State:   states.Completed,
 			Message: "Completed the stream predict",
 		},
 	}
 	newCRD = &crv1.StreamPrediction{
 		Spec: crv1.StreamPredictionSpec{
-			State: crv1.Error,
+			State: states.Failed,
 		},
 		Status: crv1.StreamPredictionStatus{
-			State:   crv1.Completed,
+			State:   states.Completed,
 			Message: "Completed the stream predict",
 		},
 	}
@@ -199,7 +188,7 @@ func TestStreampredictionHooks(t *testing.T) {
 	foo = &testResourceClient{createWillFail: false}
 	bar = &testResourceClient{createWillFail: false}
 
-	hooks = NewStreamPredictionHooks(&testCRDClient{}, []resource.Client{foo, bar}, fsm)
+	hooks = NewStreamPredictionHooks(&testCRDClient{}, []resource.Client{foo, bar})
 
 	hooks.Update(oldCRD, newCRD)
 
@@ -265,10 +254,10 @@ func TestSchemaValidation(t *testing.T) {
 				Image:        "nervana/krypton:master",
 				SidecarImage: "nervana/krypton-sidecar:master",
 			},
-			State: "Deploying",
+			State: "Pending",
 		},
 		Status: crv1.StreamPredictionStatus{
-			State:   "Deploying",
+			State:   "Pending",
 			Message: "Created, not processed",
 		},
 	}

@@ -64,28 +64,13 @@ func (e *Example) GetStatusState() states.State {
 	return e.Status.State
 }
 
+func (e *Example) GetSpecState() states.State {
+	return e.Spec.State
+}
+
 func (e *Example) SetStatusStateWithMessage(state states.State, msg string) {
 	e.Status.State = state
 	e.Status.Message = msg
-}
-
-func (e *Example) GetErrorState() states.State {
-	return StateError
-}
-
-var terminalStates = map[states.State]struct{}{
-	StateError:     {},
-	StateProcessed: {},
-}
-
-func (e *Example) IsSpecTerminal() bool {
-	_, isElement := terminalStates[e.Spec.State]
-	return isElement
-}
-
-func (e *Example) IsStatusTerminal() bool {
-	_, isElement := terminalStates[e.Status.State]
-	return isElement
 }
 
 type ExampleSpec struct {
@@ -98,12 +83,6 @@ type ExampleStatus struct {
 	State   states.State `json:"state"`
 	Message string       `json:"message,omitempty"`
 }
-
-const (
-	StateCreated   states.State = "Created"
-	StateProcessed states.State = "Processed"
-	StateError     states.State = "Error"
-)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type ExampleList struct {

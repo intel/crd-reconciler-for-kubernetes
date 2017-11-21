@@ -120,8 +120,8 @@
     },
     "state": {
       "type": "string",
-      "description": "The state space for a stream prediction job. 'Deploying' is the initial state, and 'Completed' and 'Error' are terminal.",
-      "enum": ["Deploying", "Deployed", "Completed", "Error"]
+      "description": "The state space for a stream prediction job. 'Pending' is the initial state, and 'Completed' and 'Failed' are terminal.",
+      "enum": ["Pending", "Running", "Completed", "Failed"]
     }
   },
   "required": ["apiVersion", "kind", "metadata", "spec"],

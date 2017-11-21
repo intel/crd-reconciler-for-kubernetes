@@ -77,28 +77,13 @@ func (s *StreamPrediction) GetStatusState() states.State {
 	return s.Status.State
 }
 
+func (s *StreamPrediction) GetSpecState() states.State {
+	return s.Spec.State
+}
+
 func (s *StreamPrediction) SetStatusStateWithMessage(state states.State, msg string) {
 	s.Status.State = state
 	s.Status.Message = msg
-}
-
-func (s *StreamPrediction) GetErrorState() states.State {
-	return Error
-}
-
-var terminalStates = map[states.State]struct{}{
-	Error:     {},
-	Completed: {},
-}
-
-func (s *StreamPrediction) IsSpecTerminal() bool {
-	_, isElement := terminalStates[s.Spec.State]
-	return isElement
-}
-
-func (s *StreamPrediction) IsStatusTerminal() bool {
-	_, isElement := terminalStates[s.Status.State]
-	return isElement
 }
 
 // StreamPredictionState is the current job state.
@@ -154,40 +139,9 @@ type StreamPredictionStatus struct {
 	Message string       `json:"message,omitempty"`
 }
 
-const (
-	// Deploying In this state, a job has been created, but its sub-resources are pending.
-	Deploying states.State = "Deploying"
-
-	// Deployed This is the _ready_ state for a stream prediction job.
-	// In this state, it is ready to respond to queries.
-	Deployed states.State = "Deployed"
-
-	// Completed A `Completed` job has been undeployed.  `Completed` is a terminal state.
-	Completed states.State = "Completed"
-
-	// Error A job is in an `Error` state if an error has caused it to no longer be available to respond to queries.
-	Error states.State = "Error"
-)
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type StreamPredictionList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 	Items           []StreamPrediction `json:"items"`
 }
-
-func getStreamPredictionFSM() *states.FSM {
-	fsm := states.NewFSM(
-		Deploying, Deployed,
-		Completed, Error,
-	)
-	fsm.SetAdj(Deploying, Error)
-	fsm.SetAdj(Deploying, Deployed)
-	fsm.SetAdj(Deploying, Completed)
-	fsm.SetAdj(Deployed, Error)
-	fsm.SetAdj(Deployed, Completed)
-	return fsm
-}
-
-// StreamPredictionFSM represents the FSM for a Stream Prediction job
-var StreamPredictionFSM *states.FSM = getStreamPredictionFSM()

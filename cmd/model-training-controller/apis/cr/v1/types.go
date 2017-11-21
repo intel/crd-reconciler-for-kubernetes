@@ -77,28 +77,13 @@ func (s *ModelTraining) GetStatusState() states.State {
 	return s.Status.State
 }
 
+func (s *ModelTraining) GetSpecState() states.State {
+	return s.Spec.State
+}
+
 func (s *ModelTraining) SetStatusStateWithMessage(state states.State, msg string) {
 	s.Status.State = state
 	s.Status.Message = msg
-}
-
-func (s *ModelTraining) GetErrorState() states.State {
-	return Failed
-}
-
-var terminalStates = map[states.State]struct{}{
-	Failed:    {},
-	Completed: {},
-}
-
-func (s *ModelTraining) IsSpecTerminal() bool {
-	_, isElement := terminalStates[s.Spec.State]
-	return isElement
-}
-
-func (s *ModelTraining) IsStatusTerminal() bool {
-	_, isElement := terminalStates[s.Status.State]
-	return isElement
 }
 
 // ModelTrainingSpec is the spec for the crd.
@@ -142,21 +127,6 @@ type ModelTrainingStatus struct {
 	State   states.State `json:"state,omitempty"`
 	Message string       `json:"message,omitempty"`
 }
-
-const (
-	// Pending: In this state, a job has been created, but its sub-resources are pending.
-	Pending states.State = "Pending"
-
-	// Running: This is the _ready_ state for a model training job.
-	// In this state, it is running as expected.
-	Running states.State = "Running"
-
-	// Completed: A `Completed` job has been undeployed. `Completed` is a terminal state.
-	Completed states.State = "Completed"
-
-	// Failed: A job is in an `Failed` state if an error has caused it to no longer be running as expected.
-	Failed states.State = "Failed"
-)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type ModelTrainingList struct {

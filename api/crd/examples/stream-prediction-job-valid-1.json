@@ -31,10 +31,10 @@
             "streamID": 1,
             "streamName": ""
         },
-        "state": "Deployed"
+        "state": "Running"
 
     },
     "status": {
-        "state": "Deploying"
+        "state": "Pending"
     }
 }

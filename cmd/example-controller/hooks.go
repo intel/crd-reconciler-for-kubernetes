@@ -5,6 +5,7 @@ import (
 
 	crv1 "github.com/NervanaSystems/kube-controllers-go/cmd/example-controller/apis/cr/v1"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/crd"
+	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 )
 
 // exampleHooks implements controller.Hooks.
@@ -20,7 +21,7 @@ func (c *exampleHooks) Add(obj interface{}) {
 	// this copy or create a copy manually for better performance.
 	exampleCopy := example.DeepCopy()
 	exampleCopy.Status = crv1.ExampleStatus{
-		State:   crv1.StateProcessed,
+		State:   states.Completed,
 		Message: "Successfully processed by controller",
 	}
 

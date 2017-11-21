@@ -37,6 +37,7 @@ import (
 	crv1 "github.com/NervanaSystems/kube-controllers-go/cmd/example-controller/apis/cr/v1"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/controller"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/crd"
+	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/util"
 )
 
@@ -104,7 +105,7 @@ func main() {
 			Bar: true,
 		},
 		Status: crv1.ExampleStatus{
-			State:   crv1.StateCreated,
+			State:   states.Pending,
 			Message: "Created, not processed yet",
 		},
 	}
@@ -153,7 +154,7 @@ func waitForExampleInstanceProcessed(crdClient *rest.RESTClient, name string) er
 			Name(name).
 			Do().Into(&example)
 
-		if err == nil && example.Status.State == crv1.StateProcessed {
+		if err == nil && example.Status.State == states.Completed {
 			return true, nil
 		}
 

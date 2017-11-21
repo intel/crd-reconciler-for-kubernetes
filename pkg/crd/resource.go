@@ -13,11 +13,9 @@ type CustomResource interface {
 	Name() string
 	Namespace() string
 	JSON() (string, error)
+	GetSpecState() states.State
 	GetStatusState() states.State
 	SetStatusStateWithMessage(states.State, string)
-	GetErrorState() states.State
-	IsSpecTerminal() bool
-	IsStatusTerminal() bool
 	DeepCopyObject() runtime.Object
 	GetObjectKind() schema.ObjectKind
 }

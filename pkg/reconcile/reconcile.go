@@ -158,7 +158,7 @@ func (r *Reconciler) planAction(controllerName string, subs []*subresource) (*ac
 		return &action{}, nil, fmt.Errorf("object retrieved from CRD client not an instance of crd.CustomResource: [%v]", crObj)
 	}
 	// Check whether the spec (desired state) or status (current state) is terminal.
-	if cr.IsSpecTerminal() || cr.IsStatusTerminal() {
+	if states.IsTerminal(cr.GetSpecState()) || states.IsTerminal(cr.GetStatusState()) {
 		subsToDelete := []*subresource{}
 		for _, sub := range subs {
 			subMeta, err := meta.Accessor(sub.object)
@@ -204,7 +204,7 @@ func (r *Reconciler) planAction(controllerName string, subs []*subresource) (*ac
 		if !sub.client.IsEphemeral() {
 			if subMeta.GetDeletionTimestamp() != nil {
 				return &action{
-					newCRState:  cr.GetErrorState(),
+					newCRState:  states.Failed,
 					newCRReason: fmt.Sprintf(`non-ephemeral subresource "%s" for "%s" is deleted`, sub.client.Plural(), cr.Name()),
 				}, cr, nil
 			}
@@ -212,7 +212,7 @@ func (r *Reconciler) planAction(controllerName string, subs []*subresource) (*ac
 			//           all terminal states.
 			if sub.client.IsFailed(r.namespace, cr.Name()) {
 				return &action{
-					newCRState:  cr.GetErrorState(),
+					newCRState:  states.Failed,
 					newCRReason: fmt.Sprintf(`non-ephemeral subresource "%s" for "%s" is in a terminal state`, sub.client.Plural(), cr.Name()),
 				}, cr, nil
 			}
@@ -307,7 +307,7 @@ func (r *Reconciler) executeAction(controllerName string, cr crd.CustomResource,
 	glog.V(4).Infof(`executing reconcile action for "%s" resource "%s" in namespace "%s"`, r.crdHandle.Plural, controllerName, r.namespace)
 	if a.newCRState != "" {
 		glog.Infof(`updating "%s" custom resource for controller "%s" in namespace "%s"`, r.crdHandle.Plural, controllerName, r.namespace)
-		cr.SetStatusStateWithMessage(cr.GetErrorState(), a.newCRReason)
+		cr.SetStatusStateWithMessage(states.Failed, a.newCRReason)
 		_, err := r.crdClient.Update(cr)
 		if err != nil {
 			glog.Errorf(`error updating custom resource state for "%s" in namespace "%s"`, controllerName, r.namespace)

@@ -11,95 +11,22 @@ var ErrInvalidState = errors.New("invalid state given")
 // The State type's inhabitants comprise a job's state space.
 type State string
 
-// FSM is a type which can represent a finite state machine.
-type FSM struct {
-	adjm     adjMatrix
-	strToIdx map[State]int
-}
+const (
+	// Pending In this state, a job has been created, but its sub-resources are pending.
+	Pending State = "Pending"
 
-type adjMatrix [][]bool
+	// Running This is the _ready_ state for a job.
+	// In this state, it is running as expected.
+	Running State = "Running"
 
-// NewFSM returns an empty state machine.
-func NewFSM(sts ...State) *FSM {
-	count := len(sts)
-	outer := make([][]bool, count)
-	toIdx := make(map[State]int)
-	for i, st := range sts {
-		outer[i] = make([]bool, count)
-		toIdx[st] = i
-	}
-	return &FSM{
-		adjm:     outer,
-		strToIdx: toIdx,
-	}
-}
+	// Completed A `Completed` job has been undeployed. `Completed` is a terminal state.
+	Completed State = "Completed"
 
-// SetAdj creates an adjacency in the FSM.
-func (f *FSM) SetAdj(from, to State) error {
-	fromIdx, toIdx, err := f.getIndices(from, to)
-	if err != nil {
-		return ErrInvalidState
-	}
-	f.adjm[fromIdx][toIdx] = true
-	return nil
-}
+	// Failed A job is in an `Failed` state if an error has caused it to no longer be running as expected.
+	Failed State = "Failed"
+)
 
-// ValidTransition validates that the transition for `from` to `to` is
-// valid.
-func (f *FSM) ValidTransition(from, to State) bool {
-	fromIdx, toIdx, err := f.getIndices(from, to)
-	if err != nil {
-		return false
-	}
-	return f.adjm[fromIdx][toIdx]
-}
-
-// PathExists validates that there exists a path from `from` -> `to`.
-func (f *FSM) PathExists(from, to State) bool {
-	fromIdx, toIdx, err := f.getIndices(from, to)
-	if err != nil {
-		return false
-	}
-	return f.pathExists(fromIdx, toIdx)
-}
-
-// IsStateTerminal validates if the state is terminal.
-func (f *FSM) IsStateTerminal(st State) bool {
-	for k := range f.strToIdx {
-		// Ignore self-loops.
-		if k == st {
-			continue
-		}
-
-		if f.ValidTransition(st, k) {
-			return false
-		}
-	}
-	return true
-}
-
-func (f *FSM) pathExists(from, to int) bool {
-	if f.adjm[from][to] {
-		return true
-	}
-	for idx, adj := range f.adjm[from] {
-		if adj {
-			if f.pathExists(idx, to) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (f *FSM) getIndices(from, to State) (fromIdx int, toIdx int, err error) {
-	fromIdx, ok := f.strToIdx[from]
-	if !ok {
-		return -1, -1, ErrInvalidState
-	}
-	toIdx, ok = f.strToIdx[to]
-	if !ok {
-		return -1, -1, ErrInvalidState
-	}
-	return fromIdx, toIdx, nil
+// IsTerminal returns true if the provided state is terminal.
+func IsTerminal(state State) bool {
+	return (state == Completed || state == Failed)
 }

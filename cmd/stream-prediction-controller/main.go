@@ -86,8 +86,7 @@ func main() {
 	// Create hooks
 	hooks := hooks.NewStreamPredictionHooks(
 		crdClient,
-		resourceClients,
-		crv1.StreamPredictionFSM)
+		resourceClients)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()

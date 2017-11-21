@@ -86,7 +86,7 @@ func makeModelTraining(modelName string) *crv1.ModelTraining {
 					Commit: "fakeCommit3",
 				},
 			},
-			State: crv1.Running,
+			State: states.Running,
 			ResourceSpec: crv1.ResourceSpec{
 				Requests: map[string]resource.Quantity{
 					"cpu":    resource.MustParse("1"),
@@ -96,7 +96,7 @@ func makeModelTraining(modelName string) *crv1.ModelTraining {
 			},
 		},
 		Status: crv1.ModelTrainingStatus{
-			State:   crv1.Pending,
+			State:   states.Pending,
 			Message: "Created, not processed",
 		},
 	}
@@ -143,20 +143,20 @@ func TestModelTraining(t *testing.T) {
 
 	// Check whether the job was processed.
 	// In the Running state, all subresources should exist.
-	checkModelTrainingState(t, copy, crdClient, modelName, k8sClient, NAMESPACE, crv1.Running, true)
+	checkModelTrainingState(t, copy, crdClient, modelName, k8sClient, NAMESPACE, states.Running, true)
 
 	refresh(t, copy, crdClient)
 	testSpec(t, copy, &(original.Spec))
 
 	// Right now it's in Running. Try changing it to Completed and check if all the resources are deleted.
 	refresh(t, copy, crdClient)
-	copy.Spec.State = crv1.Completed
+	copy.Spec.State = states.Completed
 
 	_, err = crdClient.Update(copy)
 	require.Nil(t, err)
 
 	refresh(t, copy, crdClient)
-	checkModelTrainingState(t, copy, crdClient, modelName, k8sClient, NAMESPACE, crv1.Completed, false)
+	checkModelTrainingState(t, copy, crdClient, modelName, k8sClient, NAMESPACE, states.Completed, false)
 
 	err = crdClient.Delete(NAMESPACE, modelName)
 	require.Nil(t, err)

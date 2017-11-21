@@ -10,6 +10,7 @@ import (
 	crv1 "github.com/NervanaSystems/kube-controllers-go/cmd/model-training-controller/apis/cr/v1"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/crd"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/resource"
+	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 )
 
 // ModelTrainingHooks implements controller.Hooks interface
@@ -38,7 +39,7 @@ func (h *ModelTrainingHooks) Add(obj interface{}) {
 	modelTrain := modelTrainingCrd.DeepCopy()
 
 	// If created with a terminal desired state. We immediately change the model training into that status.
-	if (modelTrain.Spec.State == crv1.Failed) || (modelTrain.Spec.State == crv1.Completed) {
+	if states.IsTerminal(modelTrain.Spec.State) {
 		modelTrain.Status = crv1.ModelTrainingStatus{
 			State:   modelTrainingCrd.Spec.State,
 			Message: "Added. Detected in desired terminal state and controller marked model training as " + string(modelTrainingCrd.Spec.State),
@@ -50,7 +51,7 @@ func (h *ModelTrainingHooks) Add(obj interface{}) {
 
 	// Upon receipt of a new model training CR, we mark its status as `Pending'.
 	modelTrain.Status = crv1.ModelTrainingStatus{
-		State:   crv1.Pending,
+		State:   states.Pending,
 		Message: "Added. Beginning sub-resource deployment",
 	}
 
@@ -84,7 +85,7 @@ func (h *ModelTrainingHooks) Add(obj interface{}) {
 	err = h.addResources(modelTrain)
 	if err != nil {
 		modelTrain.Status = crv1.ModelTrainingStatus{
-			State:   crv1.Failed,
+			State:   states.Failed,
 			Message: "Failed to deploy sub-resources",
 		}
 		_, err := h.crdClient.Update(modelTrain)
@@ -98,7 +99,7 @@ func (h *ModelTrainingHooks) Add(obj interface{}) {
 	}
 
 	modelTrain.Status = crv1.ModelTrainingStatus{
-		State:   crv1.Running,
+		State:   states.Running,
 		Message: "Sub-resources have been deployed",
 	}
 	_, err = h.crdClient.Update(modelTrain)
@@ -128,13 +129,13 @@ func (h *ModelTrainingHooks) Update(oldObj, newObj interface{}) {
 
 	// If the CR's spec has been updated to `Completed', then we delete
 	// subresources, and mark it as `Completed' in its status.
-	if newModelTraining.Spec.State == crv1.Completed {
+	if newModelTraining.Spec.State == states.Completed {
 		glog.Infof(
 			"model training %s has been marked for undeployment",
 			newModelTraining)
 		h.deleteResources(newModelTraining)
 		newModelTraining.Status = crv1.ModelTrainingStatus{
-			State:   crv1.Completed,
+			State:   states.Completed,
 			Message: "Model training completed",
 		}
 		if _, err := h.crdClient.Update(newModelTraining); err != nil {
@@ -147,7 +148,7 @@ func (h *ModelTrainingHooks) Update(oldObj, newObj interface{}) {
 
 	// If the CR has been marked to be in an Failed state, either by the
 	// sub-resource reconciler or during creation, we delete its sub-resources.
-	if newModelTraining.Status.State == crv1.Failed {
+	if newModelTraining.Status.State == states.Failed {
 		glog.Infof("model training %s is in an error state, "+
 			"deleting subresources",
 			newModelTraining.ObjectMeta.Name)

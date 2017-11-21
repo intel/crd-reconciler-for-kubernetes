@@ -91,11 +91,11 @@ func makeStreamPrediction(streamName string, streamID int) *crv1.StreamPredictio
 				Image:        "nervana/krypton:master",
 				SidecarImage: "nervana/krypton-sidecar:master",
 			},
-			State: crv1.Deployed,
+			State: states.Running,
 		},
 		Status: crv1.StreamPredictionStatus{
-			State:   crv1.Deploying,
-			Message: "Created, not processed",
+			State:   states.Pending,
+			Message: "Pending",
 		},
 	}
 }
@@ -142,20 +142,20 @@ func TestStreamPrediction(t *testing.T) {
 
 	// Check whether the job was processed.
 	// In the deployed state, all subresources should exist.
-	checkStreamState(t, copy, crdClient, streamName, k8sClient, NAMESPACE, crv1.Deployed, true)
+	checkStreamState(t, copy, crdClient, streamName, k8sClient, NAMESPACE, states.Running, true)
 
 	refresh(t, copy, crdClient)
 	testSpec(t, copy, &(original.Spec))
 
-	// Right now it's in Deployed. Try changing it to Completed and check if all the resources are deleted.
+	// Right now it's in Running. Try changing it to Completed and check if all the resources are deleted.
 	refresh(t, copy, crdClient)
-	copy.Spec.State = crv1.Completed
+	copy.Spec.State = states.Completed
 
 	_, err = crdClient.Update(copy)
 	require.Nil(t, err)
 
 	refresh(t, copy, crdClient)
-	checkStreamState(t, copy, crdClient, streamName, k8sClient, NAMESPACE, crv1.Completed, false)
+	checkStreamState(t, copy, crdClient, streamName, k8sClient, NAMESPACE, states.Completed, false)
 
 	err = crdClient.Delete(NAMESPACE, streamName)
 	require.Nil(t, err)
@@ -200,7 +200,7 @@ func TestStreamPredictionGC(t *testing.T) {
 
 	// Check whether the job was processed.
 	// In the deployed state, all subresources should exist.
-	checkStreamState(t, copy, crdClient, streamName, k8sClient, NAMESPACE, crv1.Deployed, true)
+	checkStreamState(t, copy, crdClient, streamName, k8sClient, NAMESPACE, states.Running, true)
 
 	// Update the deployment condition to ReplicaFailure.
 	deployment := &v1beta1.Deployment{}
@@ -228,8 +228,8 @@ func TestStreamPredictionGC(t *testing.T) {
 
 	// Check whether the GC kicks-in:
 	// - deletes all the sub-resources as the deployment failed
-	// - updates the job status state to "Error"
-	checkStreamState(t, copy, crdClient, streamName, k8sClient, NAMESPACE, crv1.Deployed, false)
+	// - updates the job status state to "Failed"
+	checkStreamState(t, copy, crdClient, streamName, k8sClient, NAMESPACE, states.Failed, false)
 
 	err = crdClient.Delete(NAMESPACE, streamName)
 	require.Nil(t, err)
