@@ -40,7 +40,7 @@ env-up: env-down
 	docker-compose ps
 
 env-down:
-	docker-compose kill
+	docker-compose down
 	# resources is mounted as ~/.kube in the test container. This removes the
 	# artifacts created during testing.
 	rm -rf resources/cache
@@ -62,7 +62,7 @@ test-e2e: env-up
 	# Run the stream-prediction controller tests in a new container with
 	# the same configuration as the service, inside the docker-compose
 	# environment.
-	docker-compose exec test kubectl delete streampredictions --all --namespace=e2e-test
+	docker-compose exec test kubectl delete streampredictions --all --namespace=e2e-test || true
 	docker-compose run stream-prediction-controller make test-e2e
 	# Run the model-training controller tests in a new container with
 	# the same configuration as the service, inside the docker-compose
