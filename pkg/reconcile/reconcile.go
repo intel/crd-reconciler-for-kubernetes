@@ -118,14 +118,16 @@ func (r *Reconciler) groupSubresourcesByCustomResource() subresourceMap {
 
 		for _, obj := range objects {
 			controllerRef := metav1.GetControllerOf(obj)
+			if controllerRef == nil {
+				glog.V(4).Infof("[reconcile] ignoring sub-resource %v, %v as it doesn not have a controller reference", obj.GetName(), r.namespace)
+				continue
+			}
 			// Only manipulate controller-created subresources.
 			if controllerRef.APIVersion != r.gvk.GroupVersion().String() || controllerRef.Kind != r.gvk.Kind {
 				glog.V(4).Infof("[reconcile] ignoring sub-resource %v, %v as controlling custom resource is from a different group, version and kind", obj.GetName(), r.namespace)
+				continue
 			}
-			var controllerName string
-			if controllerRef != nil {
-				controllerName = controllerRef.Name
-			}
+			controllerName := controllerRef.Name
 			objList := result[controllerName]
 			result[controllerName] = append(objList, &subresource{resourceClient, obj})
 		}
