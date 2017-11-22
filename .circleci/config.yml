@@ -50,3 +50,9 @@ jobs:
                   set -x
                   # Must set GOOGLE_PROJECT_ID and GOOGLE_AUTH in environment.
                   make -e push-images
+
+            - run:
+                name: Run make test-e2e
+                command: |
+                  set -x
+                  make test-e2e

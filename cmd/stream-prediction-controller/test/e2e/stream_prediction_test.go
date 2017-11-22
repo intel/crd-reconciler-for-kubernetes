@@ -26,7 +26,7 @@ import (
 const NAMESPACE = "e2e-test"
 
 func makeClients(t *testing.T) (crd.Client, *kubernetes.Clientset) {
-	config, err := util.BuildConfig("/root/.kube/config")
+	config, err := util.BuildConfig("/go/src/github.com/NervanaSystems/kube-controllers-go/resources/config")
 	require.Nil(t, err)
 
 	crdHandle := crd.New(
