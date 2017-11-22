@@ -66,9 +66,9 @@ func makeModelTraining(modelName string) *crv1.ModelTraining {
 				SidecarImage: "fakeSideCarImage",
 				NFLImage:     "fakeNFLImage",
 			},
-			SandboxS3URL: crv1.S3URL("s3:fakeSandboxS3URL"),
-			VolumeS3URLs: []crv1.S3URL{"s3:fakeVolumesS3URL1", "s3:fakeVolumesS3URL2"},
-			MetricsURL:   "fakeMetricsURL",
+			SandboxS3URLPath: "fakeSandboxS3URL",
+			VolumeS3URLs:     []crv1.S3URL{"s3:fakeVolumesS3URL1", "s3:fakeVolumesS3URL2"},
+			MetricsURL:       "fakeMetricsURL",
 			Repositories: []crv1.Repository{
 				{
 					Name:   "NAME1",

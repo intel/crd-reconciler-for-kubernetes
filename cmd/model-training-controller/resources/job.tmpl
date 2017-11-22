@@ -108,7 +108,7 @@ spec:
           mountPath: /datasets-symlink
         env:
           - name: S3_INPUT
-            value: "{{ .Spec.SandboxS3URL }}"
+            value: {{ printf "s3://%s" .Spec.SandboxS3URLPath}}
 {{ range .Spec.Repositories }}
           - name: {{ printf "%s_REPO_LOCATION" .Name }}
             value: {{ .URL  }}
@@ -135,9 +135,13 @@ spec:
         - name: code
           mountPath: /code/
         - name: job-results
-          mountPath: /output/
+          mountPath: {{ printf "/output/%s" .Spec.SandboxS3URLPath }}
         - name: aws-key-volume
           mountPath: /root/.aws/
         env:
           - name: RESULTS_BASE_DIR
-            value: /output/
+            value: {{ printf "/output/%s" .Spec.SandboxS3URLPath}}
+          - name: OUTPUT_DIR
+            value: {{ printf "/output/%s" .Spec.SandboxS3URLPath}}
+          - name: RUNNING_IN_CONTAINER
+            value: "True"
