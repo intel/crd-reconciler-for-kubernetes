@@ -142,6 +142,6 @@ spec:
           - name: RESULTS_BASE_DIR
             value: {{ printf "/output/%s" .Spec.SandboxS3URLPath}}
           - name: OUTPUT_DIR
-            value: {{ printf "/output/%s" .Spec.SandboxS3URLPath}}
+            value: /output/
           - name: RUNNING_IN_CONTAINER
             value: "True"
