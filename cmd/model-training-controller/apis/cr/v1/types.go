@@ -97,6 +97,7 @@ type ModelTrainingSpec struct {
 	MetricsURL       string        `json:"metricsURL"`
 	State            states.State  `json:"state"`
 	ResourceSpec     ResourceSpec  `json:"resourceSpec"`
+	JWTToken         string        `json:"jwtToken"`
 }
 
 // ContainerSpec is the commands that are required to run Neon training.

@@ -81,6 +81,8 @@ spec:
           value: "/datasets"
         - name: CMD
           value: "{{ .Spec.ContainerSpec.Command }}"
+        - name: JWT_TOKEN
+          value: "{{ .Spec.JWTToken }}"
       - name: model-sidecar
         image: "{{ .Spec.ContainerSpec.SidecarImage }}"
         imagePullPolicy: Always
