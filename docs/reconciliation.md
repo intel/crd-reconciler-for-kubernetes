@@ -67,18 +67,25 @@ action if necessary.
 
 ## Behaviors:
 
-| Custom resource desired state | Sub-resource current state                 | Action                                  |
-|:------------------------------|:-------------------------------------------|:----------------------------------------|
-| Terminal                      | *                                          | Delete sub-resource.                    |
-| Deleted                       | *                                          | Delete sub-resource.                    |
-| Does not exist                | *                                          | Delete sub-resource.                    |
-| Non-terminal                  | Pending, Spec matches                      | Set custom resource state to pending.   |
-| Non-terminal                  | Running, Spec matches                      | Set custom resource state to running.   |
-| Non-terminal                  | Non-terminal, Ephemeral, Spec mismatch     | Update sub-resource.                    |
-| Non-terminal                  | Non-terminal, Non-ephemeral, Spec mismatch | Set custom resource state to failed.    |
-| Non-terminal                  | Deleted, Ephemeral                         | Do nothing.                             |
-| Non-terminal                  | Deleted, Non-ephemeral                     | Set custom resource state to failed.    |
-| Non-terminal                  | Does not exist, Ephemeral                  | Recreate the sub-resource.              |
-| Non-terminal                  | Does not exist, Non-ephemeral              | Set custom resource state to failed.    |
-| Non-terminal                  | Terminal, Ephemeral                        | Recreate the sub-resource.              |
-| Non-terminal                  | Terminal, Non-ephemeral                    | Set custom resource state to failed.    |
+_NOTE: These rules apply in order from top to bottom._
+
+| CR desired     | CR status   | Sub-resource current state                 | Action                                  |
+|:---------------|:------------|:-------------------------------------------|:----------------------------------------|
+| Failed         | *           | *                                          | Do nothing.                             |
+| *              | Failed      | *                                          | Delete sub-resource.                    |
+| Pending        | *           | *                                          | Do nothing.                             |
+| *              | Completed   | *                                          | Delete sub-resource.                    |
+| Deleting       | *           | *                                          | Delete sub-resource.                    |
+| Does not exist | *           | *                                          | Delete sub-resource.                    |
+| *              | Running     | Pending, Spec matches                      | Set custom resource state to pending.   |
+| *              | Pending     | Running, Spec matches                      | Set custom resource state to running.   |
+| *              | *           | Non-terminal, Ephemeral, Spec mismatch     | Update sub-resource.                    |
+| *              | *           | Non-terminal, Non-ephemeral, Spec mismatch | Set custom resource state to failed.    |
+| *              | *           | Deleting, Ephemeral                        | Do nothing.                             |
+| *              | *           | Deleting, Non-ephemeral                    | Set custom resource state to failed.    |
+| *              | *           | Does not exist, Ephemeral                  | Recreate the sub-resource.              |
+| *              | Running     | Does not exist, Non-ephemeral              | Set custom resource state to failed.    |
+| *              | *           | Failed, Ephemeral                          | Recreate the sub-resource.              |
+| *              | *           | Failed, Non-ephemeral                      | Set custom resource state to failed.    |
+| Running        | *           | Completed                                  | Do nothing.                             |
+| Completed      | *           | Completed                                  | Set custom resource state to completed. |
