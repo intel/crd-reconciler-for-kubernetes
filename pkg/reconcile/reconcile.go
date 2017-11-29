@@ -135,6 +135,75 @@ func (r *Reconciler) groupSubresourcesByCustomResource() subresourceMap {
 	return result
 }
 
+const (
+	// Life cycle
+	exist        = "Exists"
+	doesNotExist = "Does-not-exist"
+	deleting     = "Deleting"
+
+	// Possible states
+	pending   = "Pending"
+	running   = "Running"
+	completed = "Completed"
+	failed    = "Failed"
+
+	// In case state cannot be determined.
+	unknown = "Unknown"
+)
+
+func (r *Reconciler) planActionV2(controllerName string, subs []*subresource) (*action, crd.CustomResource, error) {
+	// Fill these in on best effort basis.
+	customResourceExists := unknown
+	customResourceSpec := unknown
+	customResourceStatus := unknown
+	subresource := false
+	subresourceIsEphemeral := unknown
+	subresourceStatus := unknown
+
+	// TODO: Grab and fill the variables above.
+
+	isOneOf := func(input string, states ...string) {
+		for _, state := range states {
+			if input == state {
+				return true
+			}
+		}
+		return false
+	}
+
+	if isOneOf(customResource, doesNotExist, deleting) ||
+		(isOneOf(customResourceSpec, running, completed) && isOneOf(customResourceStatus, completed, failed)) {
+
+		deleteSubresource := &action{subresourcesToDelete: subs}
+		return deleteSubresource, nil, nil
+	}
+
+	if !subresourceIsEphemeral && isOneOf(customResourceSpec, running, completed) && isOneOf(customResourceStatus, pending, running) &&
+		isOneOf(subresource, doesNotExist, deleting) || subresourceStatus == failed {
+		// Set CR to failed
+	}
+
+	if customResourceSpec == completed && isOneOf(customResourceStatus, pending, running) && subresourceStatus == completed {
+		// Set CR as completed
+	}
+
+	if subresourceIsEphemeral && isOneOf(customResourceSpec, running, completed) && isOneOf(customResourceStatus, pending, running) &&
+		((subresource == exists && subresourceStatus == failed) || (subresource == doesNotExist)) {
+		// Recreate
+		return &action{}
+	}
+
+	if isOneOf(customResourceSpec, running, completed) && customResourceStatus == running && subresourceStatus == pending {
+		// Set CR as pending
+		// TODO: If any subresource is pending.
+	}
+
+	if isOneOf(customResourceSpec, running, completed) && customResourceStatus == pending && subresourceStatus == running {
+		// Set CR as running
+		// TODO: Has to be _all_ subresources which are running.
+	}
+}
+
 func (r *Reconciler) planAction(controllerName string, subs []*subresource) (*action, crd.CustomResource, error) {
 	glog.V(4).Infof("planning action for controller: [%s]", controllerName)
 
