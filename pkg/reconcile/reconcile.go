@@ -54,7 +54,16 @@ func (r *Reconciler) Run(ctx context.Context, interval time.Duration) error {
 	return ctx.Err()
 }
 
+type lifecycle string
+const (
+	// Life cycle
+	exist        = "Exists"
+	doesNotExist = "Does-not-exist"
+	deleting     = "Deleting"
+)
+
 type subresource struct {
+	lifecycle lifecycle
 	client resource.Client
 	object metav1.Object
 }
@@ -132,15 +141,13 @@ func (r *Reconciler) groupSubresourcesByCustomResource() subresourceMap {
 			result[controllerName] = append(objList, &subresource{resourceClient, obj})
 		}
 	}
+
+	// TODO: Find non existing subs.
+
 	return result
 }
 
 const (
-	// Life cycle
-	exist        = "Exists"
-	doesNotExist = "Does-not-exist"
-	deleting     = "Deleting"
-
 	// Possible states
 	pending   = "Pending"
 	running   = "Running"
@@ -178,29 +185,58 @@ func (r *Reconciler) planActionV2(controllerName string, subs []*subresource) (*
 		return deleteSubresource, nil, nil
 	}
 
-	if !subresourceIsEphemeral && isOneOf(customResourceSpec, running, completed) && isOneOf(customResourceStatus, pending, running) &&
-		isOneOf(subresource, doesNotExist, deleting) || subresourceStatus == failed {
-		// Set CR to failed
+	// Marshal cr object
+
+	if isOneOf(customResourceSpec, running, completed) && isOneOf(customResourceStatus, pending, running) {
+		if any(subs, func(s *subresource) {
+			return !s.client.IsEphemeral() && isOneOf(s.lifecycle, doesNotExist, deleting) || s.client.StatusState() == failed
+		}) {
+			// Set CR to failed
+			return &action{
+				newCRState:  states.Failed,
+			}, cr, nil
+		}
 	}
 
-	if customResourceSpec == completed && isOneOf(customResourceStatus, pending, running) && subresourceStatus == completed {
-		// Set CR as completed
+	if customResourceSpec == completed && isOneOf(customResourceStatus, pending, running) {
+		if any(subs, func(s *subresource) {
+			return subresourceStatus == completed
+		}) {
+			// Set CR as completed
+			return &action{
+				newCRState:  states.Completed,
+			}, cr, nil
+		}
 	}
 
-	if subresourceIsEphemeral && isOneOf(customResourceSpec, running, completed) && isOneOf(customResourceStatus, pending, running) &&
-		((subresource == exists && subresourceStatus == failed) || (subresource == doesNotExist)) {
-		// Recreate
-		return &action{}
+	if isOneOf(customResourceSpec, running, completed) && isOneOf(customResourceStatus, pending, running) {
+		toRecreate := filter(subs, func(s *subresource) {
+			return subresourceIsEphemeral && ((subresource == exists && subresourceStatus == failed) || (subresource == doesNotExist))
+		})
+
+		if len(toRecreate) > 0 {
+			// Recreate
+			return &action{toRecreate}
+		}
 	}
 
-	if isOneOf(customResourceSpec, running, completed) && customResourceStatus == running && subresourceStatus == pending {
-		// Set CR as pending
-		// TODO: If any subresource is pending.
+	if isOneOf(customResourceSpec, running, completed) && customResourceStatus == running {
+		if any(subs, func(s *subresource) { return subresourceStatus == pending }) {
+			// Set CR as pending
+			return &action{
+				newCRState:  states.Pending,
+			}, cr, nil
+		}
 	}
 
-	if isOneOf(customResourceSpec, running, completed) && customResourceStatus == pending && subresourceStatus == running {
-		// Set CR as running
-		// TODO: Has to be _all_ subresources which are running.
+	if isOneOf(customResourceSpec, running, completed) && customResourceStatus == pending {
+		// All resources must be running for us to consider the custom resource as running.
+		if all(subs, func(s *subresource) { return subresourceStatus == running }) {
+			// Set CR as running
+			return &action{
+				newCRState:  states.Running,
+			}, cr, nil
+		}
 	}
 }
 
