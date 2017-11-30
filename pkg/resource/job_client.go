@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/NervanaSystems/kube-controllers-go/pkg/resource/reify"
+	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 )
 
 type jobClient struct {
@@ -125,4 +126,9 @@ func (c *jobClient) IsFailed(namespace string, name string) bool {
 
 func (c *jobClient) IsEphemeral() bool {
 	return false
+}
+
+func (c *jobClient) GetStatusState(obj runtime.Object) states.State {
+	// TODO(CD): Detect Pending, Completed and Failed states.
+	return states.Running
 }

@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/NervanaSystems/kube-controllers-go/pkg/resource/reify"
+	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 )
 
 type deploymentClient struct {
@@ -130,11 +131,15 @@ func (c *deploymentClient) Plural() string {
 }
 
 func (c *deploymentClient) IsFailed(namespace string, name string) bool {
-	d, err := c.Get(namespace, name)
+	obj, err := c.Get(namespace, name)
 	if err != nil {
 		return false
 	}
-	dep, ok := d.(*v1beta1.Deployment)
+	return c.isFailed(obj)
+}
+
+func (c *deploymentClient) isFailed(obj runtime.Object) bool {
+	dep, ok := obj.(*v1beta1.Deployment)
 	if !ok {
 		panic("object was not a *v1beta1.Deployment")
 	}
@@ -142,7 +147,6 @@ func (c *deploymentClient) IsFailed(namespace string, name string) bool {
 	if len(conditions) == 0 {
 		return false
 	}
-
 	latestCondition := conditions[0]
 	for i := range conditions {
 		time1 := &latestCondition.LastUpdateTime
@@ -181,4 +185,12 @@ func (c *deploymentClient) IsFailed(namespace string, name string) bool {
 	}
 
 	return false
+}
+
+func (c *deploymentClient) GetStatusState(obj runtime.Object) states.State {
+	if c.isFailed(obj) {
+		return states.Failed
+	}
+	// TODO(CD): Detect Pending state. Completed doesn't make sense for this type.
+	return states.Running
 }

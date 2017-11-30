@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/NervanaSystems/kube-controllers-go/pkg/resource/reify"
+	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 )
 
 type hpaClient struct {
@@ -121,4 +122,9 @@ func (c *hpaClient) Plural() string {
 
 func (c *hpaClient) IsFailed(namespace string, name string) bool {
 	return false
+}
+
+func (c *hpaClient) GetStatusState(obj runtime.Object) states.State {
+	// TODO(CD): Detect Pending and Failed states. Completed doesn't make sense for this type.
+	return states.Running
 }

@@ -3,6 +3,8 @@ package resource
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 )
 
 // Client manipulates Kubernetes API resources backed by template files.
@@ -24,6 +26,8 @@ type Client interface {
 	IsEphemeral() bool
 	// Plural returns the plural form of the resource.
 	Plural() string
+	// GetStatusState returns the current status of the resource.
+	GetStatusState(runtime.Object) states.State
 }
 
 // GlobalTemplateValues encodes values which will be available to all template specializations.

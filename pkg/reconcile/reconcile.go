@@ -9,6 +9,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -54,25 +55,22 @@ func (r *Reconciler) Run(ctx context.Context, interval time.Duration) error {
 	return ctx.Err()
 }
 
-type lifecycle string
-const (
-	// Life cycle
-	exist        = "Exists"
-	doesNotExist = "Does-not-exist"
-	deleting     = "Deleting"
-)
-
 type subresource struct {
+	client    resource.Client
+	object    runtime.Object
 	lifecycle lifecycle
-	client resource.Client
-	object metav1.Object
 }
+
+type subresources []*subresource
+
+// Contains subresources grouped by their controlling resource.
+type subresourceMap map[string]subresources
 
 type action struct {
 	newCRState           states.State
 	newCRReason          string
-	subresourcesToCreate []*subresource
-	subresourcesToDelete []*subresource
+	subresourcesToCreate subresources
+	subresourcesToDelete subresources
 }
 
 func (a action) String() string {
@@ -96,9 +94,6 @@ func (a action) String() string {
 		strings.Join(sCreateNames, ", "),
 		strings.Join(sDeleteNames, ", "))
 }
-
-// Contains subresources grouped by their controlling resource.
-type subresourceMap map[string][]*subresource
 
 func (r *Reconciler) run() {
 	subresourcesByCR := r.groupSubresourcesByCustomResource()
@@ -136,276 +131,193 @@ func (r *Reconciler) groupSubresourcesByCustomResource() subresourceMap {
 				glog.V(4).Infof("[reconcile] ignoring sub-resource %v, %v as controlling custom resource is from a different group, version and kind", obj.GetName(), r.namespace)
 				continue
 			}
+
+			subLifecycle := exists
+			objMeta, err := meta.Accessor(obj)
+			if err != nil {
+				glog.Warningf("[reconcile] error getting meta accessor for subresource: %v", err)
+				continue
+			}
+			if objMeta.GetDeletionTimestamp() != nil {
+				subLifecycle = deleting
+			}
+
+			runtimeObj, ok := obj.(runtime.Object)
+			if !ok {
+				glog.Warningf("[reconcile] error asserting metav1.Object as runtime.Object: %v", err)
+				continue
+			}
+
 			controllerName := controllerRef.Name
 			objList := result[controllerName]
-			result[controllerName] = append(objList, &subresource{resourceClient, obj})
+			result[controllerName] = append(objList, &subresource{resourceClient, runtimeObj, subLifecycle})
 		}
 	}
 
-	// TODO: Find non existing subs.
+	// Find non-existing subresources based on the expected subresource clients.
+	for controllerName, subs := range result {
+		// ASSUMPTION: There is at most one subresource of each kind per
+		//             custom resource. We use the plural form as a key.
+		existingSubs := map[string]struct{}{}
+		for _, sub := range subs {
+			existingSubs[sub.client.Plural()] = struct{}{}
+		}
+
+		for _, subClient := range r.resourceClients {
+			_, exists := existingSubs[subClient.Plural()]
+			if !exists {
+				result[controllerName] = append(subs, &subresource{subClient, nil, doesNotExist})
+			}
+		}
+	}
 
 	return result
 }
 
-const (
-	// Possible states
-	pending   = "Pending"
-	running   = "Running"
-	completed = "Completed"
-	failed    = "Failed"
-
-	// In case state cannot be determined.
-	unknown = "Unknown"
-)
-
-func (r *Reconciler) planActionV2(controllerName string, subs []*subresource) (*action, crd.CustomResource, error) {
-	// Fill these in on best effort basis.
-	customResourceExists := unknown
-	customResourceSpec := unknown
-	customResourceStatus := unknown
-	subresource := false
-	subresourceIsEphemeral := unknown
-	subresourceStatus := unknown
-
-	// TODO: Grab and fill the variables above.
-
-	isOneOf := func(input string, states ...string) {
-		for _, state := range states {
-			if input == state {
-				return true
-			}
-		}
-		return false
-	}
-
-	if isOneOf(customResource, doesNotExist, deleting) ||
-		(isOneOf(customResourceSpec, running, completed) && isOneOf(customResourceStatus, completed, failed)) {
-
-		deleteSubresource := &action{subresourcesToDelete: subs}
-		return deleteSubresource, nil, nil
-	}
-
-	// Marshal cr object
-
-	if isOneOf(customResourceSpec, running, completed) && isOneOf(customResourceStatus, pending, running) {
-		if any(subs, func(s *subresource) {
-			return !s.client.IsEphemeral() && isOneOf(s.lifecycle, doesNotExist, deleting) || s.client.StatusState() == failed
-		}) {
-			// Set CR to failed
-			return &action{
-				newCRState:  states.Failed,
-			}, cr, nil
+func (subs subresources) filter(predicate func(s *subresource) bool) subresources {
+	var result subresources
+	for _, sub := range subs {
+		if predicate(sub) {
+			result = append(result, sub)
 		}
 	}
-
-	if customResourceSpec == completed && isOneOf(customResourceStatus, pending, running) {
-		if any(subs, func(s *subresource) {
-			return subresourceStatus == completed
-		}) {
-			// Set CR as completed
-			return &action{
-				newCRState:  states.Completed,
-			}, cr, nil
-		}
-	}
-
-	if isOneOf(customResourceSpec, running, completed) && isOneOf(customResourceStatus, pending, running) {
-		toRecreate := filter(subs, func(s *subresource) {
-			return subresourceIsEphemeral && ((subresource == exists && subresourceStatus == failed) || (subresource == doesNotExist))
-		})
-
-		if len(toRecreate) > 0 {
-			// Recreate
-			return &action{toRecreate}
-		}
-	}
-
-	if isOneOf(customResourceSpec, running, completed) && customResourceStatus == running {
-		if any(subs, func(s *subresource) { return subresourceStatus == pending }) {
-			// Set CR as pending
-			return &action{
-				newCRState:  states.Pending,
-			}, cr, nil
-		}
-	}
-
-	if isOneOf(customResourceSpec, running, completed) && customResourceStatus == pending {
-		// All resources must be running for us to consider the custom resource as running.
-		if all(subs, func(s *subresource) { return subresourceStatus == running }) {
-			// Set CR as running
-			return &action{
-				newCRState:  states.Running,
-			}, cr, nil
-		}
-	}
+	return result
 }
 
-func (r *Reconciler) planAction(controllerName string, subs []*subresource) (*action, crd.CustomResource, error) {
-	glog.V(4).Infof("planning action for controller: [%s]", controllerName)
+func (subs subresources) any(predicate func(s *subresource) bool) bool {
+	return len(subs.filter(predicate)) > 0
+}
 
+func (subs subresources) all(predicate func(s *subresource) bool) bool {
+	return len(subs.filter(predicate)) == len(subs)
+}
+
+func (r *Reconciler) planAction(controllerName string, subs subresources) (*action, crd.CustomResource, error) {
 	// If the controller name is empty, these are not our subresources;
 	// do nothing.
 	if controllerName == "" {
 		return &action{}, nil, nil
 	}
 
-	// | Custom resource desired state | Sub-resource current state                 | Action                                  |
-	// |:------------------------------|:-------------------------------------------|:----------------------------------------|
-	// | Does not exist                | *                                          | Delete sub-resource.                    |
+	// Compute the current lifecycle phase of the custom resource.
+	customResourceLifecycle := exists
 	crObj, err := r.crdClient.Get(r.namespace, controllerName)
 	if err != nil && apierrors.IsNotFound(err) {
-		return &action{subresourcesToDelete: subs}, nil, nil
+		customResourceLifecycle = doesNotExist
 	}
-
-	// | Custom resource desired state | Sub-resource current state                 | Action                                  |
-	// |:------------------------------|:-------------------------------------------|:----------------------------------------|
-	// | Terminal                      | *                                          | Delete sub-resource.                    |
-	cr, ok := crObj.(crd.CustomResource)
-	if !ok {
-		return &action{}, nil, fmt.Errorf("object retrieved from CRD client not an instance of crd.CustomResource: [%v]", crObj)
-	}
-	// Check whether the spec (desired state) or status (current state) is terminal.
-	if states.IsTerminal(cr.GetSpecState()) || states.IsTerminal(cr.GetStatusState()) {
-		subsToDelete := []*subresource{}
-		for _, sub := range subs {
-			subMeta, err := meta.Accessor(sub.object)
-			if err != nil {
-				glog.Warningf("[reconcile] error getting meta accessor for subresource: %v", err)
-				continue
-			}
-			if subMeta.GetDeletionTimestamp() == nil {
-				subsToDelete = append(subsToDelete, sub)
-			}
-		}
-		return &action{subresourcesToDelete: subsToDelete}, cr, nil
-	}
-
-	// | Custom resource desired state | Sub-resource current state                 | Action                                  |
-	// |:------------------------------|:-------------------------------------------|:----------------------------------------|
-	// | Deleted                       | *                                          | Delete sub-resource.                    |
 	crMeta, err := meta.Accessor(crObj)
 	if err != nil {
 		glog.Warningf("[reconcile] error getting meta accessor for controlling custom resource: %v", err)
 	} else if crMeta.GetDeletionTimestamp() != nil {
-		return &action{subresourcesToDelete: subs}, cr, nil
+		customResourceLifecycle = deleting
 	}
 
-	// | Custom resource desired state | Sub-resource current state                 | Action                                  |
-	// |:------------------------------|:-------------------------------------------|:----------------------------------------|
-	// | Non-terminal                  | Does not exist, Non-ephemeral              | Set custom resource state to failed.    |
-
-	// TODO(CD): need to be careful here, there is a race between the controller
-	//           hooks creating the subresources in the first place and this
-	//           reconcile loop.
-
-	// | Custom resource desired state | Sub-resource current state                 | Action                                  |
-	// |:------------------------------|:-------------------------------------------|:----------------------------------------|
-	// | Non-terminal                  | Deleted, Non-ephemeral                     | Set custom resource state to failed.    |
-	// | Non-terminal                  | Terminal, Non-ephemeral                    | Set custom resource state to failed.    |
-	for _, sub := range subs {
-		subMeta, err := meta.Accessor(sub.object)
-		if err != nil {
-			glog.Warningf("[reconcile] error getting meta accessor for subresource: %v", err)
-			continue
-		}
-		if !sub.client.IsEphemeral() {
-			if subMeta.GetDeletionTimestamp() != nil {
-				return &action{
-					newCRState:  states.Failed,
-					newCRReason: fmt.Sprintf(`non-ephemeral subresource "%s" for "%s" is deleted`, sub.client.Plural(), cr.Name()),
-				}, cr, nil
-			}
-			// TODO(CD): Widen subresource terminal state detection to include
-			//           all terminal states.
-			if sub.client.IsFailed(r.namespace, cr.Name()) {
-				return &action{
-					newCRState:  states.Failed,
-					newCRReason: fmt.Sprintf(`non-ephemeral subresource "%s" for "%s" is in a terminal state`, sub.client.Plural(), cr.Name()),
-				}, cr, nil
-			}
-		}
+	// If the custom resource is deleting or does not exist, clean up all
+	// subresources.
+	if customResourceLifecycle.isOneOf(doesNotExist, deleting) {
+		return &action{subresourcesToDelete: subs}, nil, nil
 	}
 
-	// | Custom resource desired state | Sub-resource current state                 | Action                                  |
-	// |:------------------------------|:-------------------------------------------|:----------------------------------------|
-	// | Non-terminal                  | Non-terminal, Non-ephemeral, Spec mismatch | Set custom resource state to failed.    |
+	cr, ok := crObj.(crd.CustomResource)
+	if !ok {
+		return &action{}, nil, fmt.Errorf("object retrieved from CRD client not an instance of crd.CustomResource: [%v]", crObj)
+	}
 
-	// TODO
+	customResourceSpec := cr.GetSpecState()
+	customResourceStatus := cr.GetStatusState()
 
-	// | Custom resource desired state | Sub-resource current state                 | Action                                  |
-	// |:------------------------------|:-------------------------------------------|:----------------------------------------|
-	// | Non-terminal                  | Pending, Spec matches                      | Set custom resource state to pending.   |
+	// If the desired custom resource state is running or completed AND
+	// the custom resource is in a terminal state, then delete all subresources.
+	if customResourceSpec.IsOneOf(states.Running, states.Completed) &&
+		customResourceStatus.IsOneOf(states.Completed, states.Failed) {
+		return &action{subresourcesToDelete: subs}, nil, nil
+	}
 
-	// TODO
-
-	// | Custom resource desired state | Sub-resource current state                 | Action                                  |
-	// |:------------------------------|:-------------------------------------------|:----------------------------------------|
-	// | Non-terminal                  | Non-terminal, Ephemeral, Spec mismatch     | Update sub-resource.                    |
-
-	// TODO
-
-	// | Custom resource desired state | Sub-resource current state                 | Action                                  |
-	// |:------------------------------|:-------------------------------------------|:----------------------------------------|
-	// | Non-terminal                  | Terminal, Ephemeral                        | Recreate the sub-resource.              |
-
-	// Delete terminal ephemeral subresources. They will be recreated in a
-	// subsequent iteration when they are found not to exist.
-	subsToDelete := []*subresource{}
-	for _, sub := range subs {
-		subMeta, err := meta.Accessor(sub.object)
-		if err != nil {
-			glog.Warningf("[reconcile] error getting meta accessor for subresource: %v", err)
-			continue
-		}
-		if sub.client.IsEphemeral() && subMeta.GetDeletionTimestamp() == nil {
-			// TODO(CD): Widen subresource terminal state detection to include
-			//           all terminal states.
-			if sub.client.IsFailed(r.namespace, cr.Name()) {
-				subsToDelete = append(subsToDelete, sub)
-			}
+	// If the desired custom resource state is running or completed AND
+	// the current custom resource status is non-terminal, ANY non-ephemeral
+	// subresource that is failed, does not exist or has been deleted causes
+	// the custom resource current state to move to failed.
+	if customResourceSpec.IsOneOf(states.Running, states.Completed) &&
+		customResourceStatus.IsOneOf(states.Pending, states.Running) {
+		if subs.any(func(s *subresource) bool {
+			return !s.client.IsEphemeral() &&
+				s.lifecycle.isOneOf(doesNotExist, deleting) ||
+				s.client.GetStatusState(s.object) == states.Failed
+		}) {
+			// Set CR to failed
+			return &action{
+				newCRState: states.Failed,
+			}, cr, nil
 		}
 	}
-	if len(subsToDelete) > 0 {
-		return &action{subresourcesToDelete: subsToDelete}, cr, nil
-	}
 
-	// | Custom resource desired state | Sub-resource current state                 | Action                                  |
-	// |:------------------------------|:-------------------------------------------|:----------------------------------------|
-	// | Non-terminal                  | Does not exist, Ephemeral                  | Recreate the sub-resource.              |
-
-	// ASSUMPTION: There is at most one subresource of each kind per
-	//             custom resource. We use the plural form as a key.
-	existingSubs := map[string]struct{}{}
-	for _, sub := range subs {
-		existingSubs[sub.client.Plural()] = struct{}{}
-	}
-	subsToCreate := []*subresource{}
-	for _, subClient := range r.resourceClients {
-		// TODO(CD): handle non-ephemeral subresources that do not exist.
-		_, exists := existingSubs[subClient.Plural()]
-		if !exists && subClient.IsEphemeral() {
-			subsToCreate = append(subsToCreate, &subresource{client: subClient})
+	// If the desired custom resource state is completed AND
+	// the current custom resource status is pending or running, then if ANY
+	// subresource is completed, set the current custom resource state to
+	// completed.
+	if customResourceSpec == states.Completed && customResourceStatus.IsOneOf(states.Pending, states.Running) {
+		if subs.any(func(s *subresource) bool {
+			return s.client.GetStatusState(s.object) == states.Completed
+		}) {
+			// Set CR as completed
+			return &action{
+				newCRState: states.Completed,
+			}, cr, nil
 		}
 	}
-	if len(subsToCreate) > 0 {
-		return &action{subresourcesToCreate: subsToCreate}, cr, nil
+
+	// If the desired custom resource state is running or completed AND
+	// the current custom resource state is pending or running, then
+	// re-create any nonexisting ephemeral subresources.
+	if customResourceSpec.IsOneOf(states.Running, states.Completed) &&
+		customResourceStatus.IsOneOf(states.Pending, states.Running) {
+		toRecreate := subs.filter(func(s *subresource) bool {
+			return s.client.IsEphemeral() &&
+				(s.lifecycle == exists && s.client.GetStatusState(s.object) == states.Failed ||
+					s.lifecycle == doesNotExist)
+		})
+
+		if len(toRecreate) > 0 {
+			// Recreate
+			return &action{subresourcesToCreate: toRecreate}, cr, nil
+		}
 	}
 
-	// | Custom resource desired state | Sub-resource current state                 | Action                                  |
-	// |:------------------------------|:-------------------------------------------|:----------------------------------------|
-	// | Non-terminal                  | Deleted, Ephemeral                         | Do nothing.                             |
+	// If the desired custom resource state is running or completed AND
+	// the current custom resource state is running AND
+	// ANY subresource is pending, then set the current custom resource state
+	// to pending.
+	if customResourceSpec.IsOneOf(states.Running, states.Completed) &&
+		customResourceStatus == states.Running {
+		if subs.any(func(s *subresource) bool {
+			return s.client.GetStatusState(s.object) == states.Pending
+		}) {
+			// Set CR as pending
+			return &action{
+				newCRState: states.Pending,
+			}, cr, nil
+		}
+	}
 
-	// Nothing to do.
+	// If the desired custom resource state is running or completed AND
+	// the current custom resource state is pending AND
+	// ALL subresources are running, then set the current custom resource state
+	// to running.
+	if customResourceSpec.IsOneOf(states.Running, states.Completed) &&
+		customResourceStatus == states.Pending {
+		// All resources must be running for us to consider the custom resource as running.
+		if subs.all(func(s *subresource) bool {
+			return s.client.GetStatusState(s.object) == states.Running
+		}) {
+			// Set CR as running
+			return &action{
+				newCRState: states.Running,
+			}, cr, nil
+		}
+	}
 
-	// | Custom resource desired state | Sub-resource current state                 | Action                                  |
-	// |:------------------------------|:-------------------------------------------|:----------------------------------------|
-	// | Non-terminal                  | Running, Spec matches                      | Set custom resource state to running.   |
-
-	// TODO
-
-	// Fall-through case; do nothing.
+	// Default case: do nothing.
 	return &action{}, cr, nil
-
 }
 
 func (r *Reconciler) executeAction(controllerName string, cr crd.CustomResource, a *action) []error {

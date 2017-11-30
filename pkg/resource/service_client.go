@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/NervanaSystems/kube-controllers-go/pkg/resource/reify"
+	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 )
 
 type serviceClient struct {
@@ -121,4 +122,9 @@ func (c *serviceClient) Plural() string {
 
 func (c *serviceClient) IsFailed(namespace string, name string) bool {
 	return false
+}
+
+func (c *serviceClient) GetStatusState(obj runtime.Object) states.State {
+	// TODO(CD): Detect Pending and Failed. Completed doesn't make sense for this type.
+	return states.Running
 }

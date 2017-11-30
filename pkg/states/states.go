@@ -30,3 +30,13 @@ const (
 func IsTerminal(state State) bool {
 	return (state == Completed || state == Failed)
 }
+
+// IsOneOf returns true if this state is in the supplied list.
+func (s State) IsOneOf(targets ...State) bool {
+	for _, target := range targets {
+		if s == target {
+			return true
+		}
+	}
+	return false
+}
