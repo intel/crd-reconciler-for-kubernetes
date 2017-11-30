@@ -8,7 +8,10 @@
     "spec": {
         "state": "Running",
         "containerSpec": {
-            "command": ["foo.py", "bar", "baz"]
+            "command": ["foo.py", "bar", "baz"],
+            "image": "image1",
+            "sidecarImage": "image2",
+            "nflImage": "image3"
         },
         "sandboxS3URL": "s3://baz/bar",
         "volumesS3URLs": [
@@ -18,14 +21,18 @@
         "repositories": [
             {
                 "URL": "git://git@github.com/foo/bar",
-                "commit": "v0.1.0"
+                "commit": "v0.1.0",
+                "name": "bar"
             },
             {
                 "URL": "https://github.com/baz/foo",
-                "commit": "master"
+                "commit": "master",
+                "name": "foo"
             }
         ],
-        "metricsURL": "https://foo:8042/bar"
+        "metricsURL": "https://foo:8042/bar",
+        "jobID": "1",
+        "tenantID": "1"
     },
     "status": {
         "state": "Pending"

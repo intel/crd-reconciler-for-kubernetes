@@ -40,6 +40,14 @@
           "items": {
             "type": "string"
           }
+        },
+        "sidecarImage": {
+          "type": "string",
+          "description": "Specifies the image for the sidecar container"
+        },
+        "nflImage": {
+          "type": "string",
+          "description": "Specifies the image for the NFL container"
         }
       }
     },
@@ -60,6 +68,10 @@
         "commit": {
           "type": "string",
           "description": "Either branch, tag or commit."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the repo"
         }
       }
     }
@@ -92,7 +104,7 @@
     "spec": {
       "type": "object",
       "description": "The specification for the job and encode all information needed to run the model training job. The job controllers will monitor for changes continously and act based on the desired state encoded here",
-      "required": ["state", "containerSpec", "sandboxS3URL"],
+      "required": ["state", "containerSpec", "sandboxS3URL", "jobID", "tenantID"],
       "properties": {
         "state": {
           "$ref": "#/definitions/state"
@@ -125,6 +137,14 @@
           "type": "string",
           "format": "URI",
           "description": "Call back URL for job to keep Helium up to date with the ongoing job process."
+        },
+        "jobID": {
+          "type": "string",
+          "description": "The unique job id identifying the job"
+        },
+        "tenantID": {
+          "type": "string",
+          "description": "The unique tenant id specifying which tenant started the job"
         }
       }
     },
