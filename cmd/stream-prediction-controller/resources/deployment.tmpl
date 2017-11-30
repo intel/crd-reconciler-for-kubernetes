@@ -3,6 +3,10 @@ kind: Deployment
 metadata:
   name: "{{.Spec.StreamDataSpec.StreamName}}"
   namespace: "{{.ObjectMeta.Namespace}}"
+  labels:
+    run: "{{.Spec.StreamDataSpec.StreamName}}"
+    type: stream
+    id: "{{.Spec.StreamDataSpec.StreamID}}"
   ownerReferences:
   - apiVersion: {{.APIVersion}}
     kind: {{.Kind}}

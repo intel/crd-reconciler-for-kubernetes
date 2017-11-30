@@ -100,6 +100,25 @@ func makeStreamPrediction(streamName string, streamID int) *crv1.StreamPredictio
 	}
 }
 
+func makePodWithLabels(podName string, labels map[string]string) *apiv1.Pod {
+	var containers []apiv1.Container
+	ctn := apiv1.Container{
+		Name:  "fakecontainername",
+		Image: "busybox",
+	}
+	containers = append(containers, ctn)
+
+	return &apiv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   podName,
+			Labels: labels,
+		},
+		Spec: apiv1.PodSpec{
+			Containers: containers,
+		},
+	}
+}
+
 func refresh(t *testing.T, local *crv1.StreamPrediction, crdClient crd.Client) {
 	streamName := local.Name()
 	namespace := local.Namespace()
@@ -141,7 +160,7 @@ func TestStreamPrediction(t *testing.T) {
 	testSpec(t, copy, &(original.Spec))
 
 	// Check whether the job was processed.
-	// In the deployed state, all subresources should exist.
+	// In the running state, all subresources should exist.
 	checkStreamState(t, copy, crdClient, streamName, k8sClient, NAMESPACE, states.Running, true)
 
 	refresh(t, copy, crdClient)
@@ -169,9 +188,9 @@ func TestStreamPrediction(t *testing.T) {
 	require.Equal(t, len(streamPredictList.Items), 0)
 }
 
-// Test if GC and reconcile works for StreamPrediciton.
+// Test if reconcile works for StreamPrediciton.
 // Create a new stream prediction job which will end-up in an error.
-func TestStreamPredictionGC(t *testing.T) {
+func TestStreamPredictionReconcileDepFail(t *testing.T) {
 	crdClient, k8sClient := makeClients(t)
 
 	streamName := fmt.Sprintf("stream%s", strings.ToLower(ksuid.New().String()))
@@ -199,7 +218,7 @@ func TestStreamPredictionGC(t *testing.T) {
 	testSpec(t, copy, &(original.Spec))
 
 	// Check whether the job was processed.
-	// In the deployed state, all subresources should exist.
+	// In the running state, all subresources should exist.
 	checkStreamState(t, copy, crdClient, streamName, k8sClient, NAMESPACE, states.Running, true)
 
 	// Update the deployment condition to ReplicaFailure.
@@ -229,6 +248,113 @@ func TestStreamPredictionGC(t *testing.T) {
 	// Check whether the GC kicks-in:
 	// - deletes all the sub-resources as the deployment failed
 	// - updates the job status state to "Failed"
+	checkStreamState(t, copy, crdClient, streamName, k8sClient, NAMESPACE, states.Failed, false)
+
+	err = crdClient.Delete(NAMESPACE, streamName)
+	require.Nil(t, err)
+
+	streamPredictList := &crv1.StreamPredictionList{}
+	err = crdClient.RESTClient().
+		Get().
+		Resource(crv1.StreamPredictionResourcePlural).
+		Do().
+		Into(streamPredictList)
+	require.Nil(t, err)
+	require.Equal(t, len(streamPredictList.Items), 0)
+}
+
+// Test if reconcile works for StreamPrediciton when container in a pod fails.
+// Create a new stream prediction job which will end-up in an error.
+func TestStreamPredictionReconcilePodFail(t *testing.T) {
+	crdClient, k8sClient := makeClients(t)
+
+	streamName := fmt.Sprintf("stream%s", strings.ToLower(ksuid.New().String()))
+	streamID := 0
+	original := makeStreamPrediction(streamName, streamID)
+
+	copy := &crv1.StreamPrediction{}
+	err := crdClient.RESTClient().Post().
+		Resource(crv1.StreamPredictionResourcePlural).
+		Namespace(NAMESPACE).
+		Body(original).
+		Do().
+		Into(copy)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("Created stream prediction: %#v\n", copy)
+
+	// Check whether the job was created successfully.
+	refresh(t, copy, crdClient)
+	testSpec(t, copy, &(original.Spec))
+
+	// Check whether the job was processed.
+	// In the running state, all subresources should exist.
+	checkStreamState(t, copy, crdClient, streamName, k8sClient, NAMESPACE, states.Running, true)
+
+	// Update the deployment condition to ready to make sure this test case
+	// exercises the container in a pod failed case.
+	deployment := &v1beta1.Deployment{}
+	deployment, err = k8sClient.ExtensionsV1beta1().
+		Deployments(NAMESPACE).Get(streamName, metav1.GetOptions{})
+	require.Nil(t, err)
+	require.NotNil(t, deployment)
+
+	depConditions := deployment.Status.Conditions
+	depConditions = append(depConditions, v1beta1.DeploymentCondition{
+		Type:               v1beta1.DeploymentAvailable,
+		Status:             apiv1.ConditionTrue,
+		LastUpdateTime:     metav1.Now(),
+		LastTransitionTime: metav1.Now(),
+		Reason:             "fakeReason",
+		Message:            "fakeMsg",
+	})
+
+	deployment.Status.Conditions = depConditions
+	availableDeployment, err := k8sClient.ExtensionsV1beta1().
+		Deployments(NAMESPACE).UpdateStatus(deployment)
+	require.Nil(t, err)
+	require.NotNil(t, availableDeployment)
+	require.Equal(t, availableDeployment.Status.Conditions[0].Type, v1beta1.DeploymentAvailable)
+
+	// Create a pod with same labels as deployment.
+	pod := makePodWithLabels("fakepod", availableDeployment.ObjectMeta.Labels)
+	t.Logf("POD: %v", pod)
+	pod, err = k8sClient.CoreV1().Pods(NAMESPACE).Create(pod)
+
+	// Make sure the pod was created.
+	require.Nil(t, err)
+	require.NotNil(t, pod)
+	require.Nil(t, waitPoll(func() (bool, error) {
+		pod, err = k8sClient.CoreV1().
+			Pods(NAMESPACE).Get("fakepod", metav1.GetOptions{})
+		if err == nil {
+			return true, nil
+		}
+		return false, err
+	}))
+
+	// Update the pod container status to not ready and set restart count > 0.
+	var containerStatuses []apiv1.ContainerStatus
+	containerStatuses = append(containerStatuses, apiv1.ContainerStatus{
+		Name:         "fakecontainername",
+		Ready:        false,
+		RestartCount: 1,
+	})
+	pod.Status.ContainerStatuses = containerStatuses
+	failedPod, err := k8sClient.CoreV1().Pods(NAMESPACE).UpdateStatus(pod)
+
+	// Make sure the pod was updated.
+	require.Nil(t, err)
+	require.NotNil(t, failedPod)
+	require.Equal(t, failedPod.Status.ContainerStatuses[0].Ready, false)
+	require.Equal(t, failedPod.Status.ContainerStatuses[0].RestartCount, int32(1))
+
+	// Check whether the GC and reconciler kicks-in:
+	// - updates the job status state to Failed
+	// - deletes all the sub-resources as the custom resource failed
 	checkStreamState(t, copy, crdClient, streamName, k8sClient, NAMESPACE, states.Failed, false)
 
 	err = crdClient.Delete(NAMESPACE, streamName)

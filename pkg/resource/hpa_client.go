@@ -90,7 +90,7 @@ func (c *hpaClient) Get(namespace, name string) (result runtime.Object, err erro
 	return result, err
 }
 
-func (c *hpaClient) List(namespace string) (result []metav1.Object, err error) {
+func (c *hpaClient) List(namespace string, labels map[string]string) (result []metav1.Object, err error) {
 	list := &autoscalingv1.HorizontalPodAutoscalerList{}
 	opts := metav1.ListOptions{}
 	err = c.restClient.Get().

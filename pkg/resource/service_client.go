@@ -90,7 +90,7 @@ func (c *serviceClient) Get(namespace, name string) (result runtime.Object, err 
 	return result, err
 }
 
-func (c *serviceClient) List(namespace string) (result []metav1.Object, err error) {
+func (c *serviceClient) List(namespace string, labels map[string]string) (result []metav1.Object, err error) {
 	list := &corev1.ServiceList{}
 	opts := metav1.ListOptions{}
 	err = c.restClient.Get().

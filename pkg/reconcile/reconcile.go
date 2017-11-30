@@ -110,7 +110,7 @@ func (r *Reconciler) run() {
 func (r *Reconciler) groupSubresourcesByCustomResource() subresourceMap {
 	result := subresourceMap{}
 	for _, resourceClient := range r.resourceClients {
-		objects, err := resourceClient.List(r.namespace)
+		objects, err := resourceClient.List(r.namespace, map[string]string{})
 		if err != nil {
 			glog.Warningf(`[reconcile] failed to list "%s" subresources`, resourceClient.Plural())
 			continue

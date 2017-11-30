@@ -17,6 +17,7 @@ import (
 
 type deploymentClient struct {
 	globalTemplateValues GlobalTemplateValues
+	k8sClientset         *kubernetes.Clientset
 	restClient           rest.Interface
 	resourcePluralForm   string
 	templateFileName     string
@@ -26,6 +27,7 @@ type deploymentClient struct {
 func NewDeploymentClient(globalTemplateValues GlobalTemplateValues, clientSet *kubernetes.Clientset, templateFileName string) Client {
 	return &deploymentClient{
 		globalTemplateValues: globalTemplateValues,
+		k8sClientset:         clientSet,
 		restClient:           clientSet.ExtensionsV1beta1().RESTClient(),
 		resourcePluralForm:   "deployments",
 		templateFileName:     templateFileName,
@@ -98,7 +100,7 @@ func (c *deploymentClient) Get(namespace, name string) (result runtime.Object, e
 	return result, err
 }
 
-func (c *deploymentClient) List(namespace string) (result []metav1.Object, err error) {
+func (c *deploymentClient) List(namespace string, labels map[string]string) (result []metav1.Object, err error) {
 	list := &v1beta1.DeploymentList{}
 	opts := metav1.ListOptions{}
 	err = c.restClient.Get().
@@ -150,5 +152,33 @@ func (c *deploymentClient) IsFailed(namespace string, name string) bool {
 		}
 	}
 
-	return latestCondition.Type == v1beta1.DeploymentReplicaFailure
+	if latestCondition.Type == v1beta1.DeploymentReplicaFailure {
+		return true
+	}
+
+	// If the deployment is not in a failed state we inspect whether the
+	// containers controlled by the deployment are healthy.
+	// This is required because the definition of pod failure in kubernetes is
+	// strict. The pod is considered failed iff all containers in the pod have
+	// terminated, and at least one container has terminated in a failure (exited
+	// with a non-zero exit code or was stopped by the system). If the pod gets to
+	// a failed state the controlling object (e.g., deployment),
+	// enters a failed state (i.e., DeploymentReplicaFailure state in case of
+	// deployment) as well.
+	podClient := NewPodClient(GlobalTemplateValues{}, c.k8sClientset, "")
+
+	// List all the pods with the same labels as the deployment and check if
+	// they have failed.
+	podList, err := podClient.List(namespace, dep.ObjectMeta.Labels)
+	if err != nil {
+		return false
+	}
+
+	for _, pod := range podList {
+		if podClient.IsFailed(pod.GetNamespace(), pod.GetName()) {
+			return true
+		}
+	}
+
+	return false
 }

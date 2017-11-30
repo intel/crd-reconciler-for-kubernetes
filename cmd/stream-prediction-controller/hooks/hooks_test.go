@@ -46,7 +46,7 @@ func (trc *testResourceClient) Get(namespace, name string) (result runtime.Objec
 	return result, err
 }
 
-func (trc *testResourceClient) List(namespace string) (result []metav1.Object, err error) {
+func (trc *testResourceClient) List(namespace string, labels map[string]string) (result []metav1.Object, err error) {
 	return
 }
 

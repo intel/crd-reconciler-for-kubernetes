@@ -94,7 +94,7 @@ func (c *jobClient) Get(namespace, name string) (result runtime.Object, err erro
 	return result, err
 }
 
-func (c *jobClient) List(namespace string) (result []metav1.Object, err error) {
+func (c *jobClient) List(namespace string, labels map[string]string) (result []metav1.Object, err error) {
 	list := &batchv1.JobList{}
 	opts := metav1.ListOptions{}
 	err = c.restClient.Get().

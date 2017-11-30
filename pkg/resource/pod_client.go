@@ -5,8 +5,9 @@ import (
 	"net/http"
 
 	"github.com/golang/glog"
-	"k8s.io/api/extensions/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apilabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -15,24 +16,24 @@ import (
 	"github.com/NervanaSystems/kube-controllers-go/pkg/resource/reify"
 )
 
-type ingressClient struct {
+type podClient struct {
 	globalTemplateValues GlobalTemplateValues
 	restClient           rest.Interface
 	resourcePluralForm   string
 	templateFileName     string
 }
 
-// NewIngressClient returns a new ingress client.
-func NewIngressClient(globalTemplateValues GlobalTemplateValues, clientSet *kubernetes.Clientset, templateFileName string) Client {
-	return &ingressClient{
+// NewPodClient returns a new pod client.
+func NewPodClient(globalTemplateValues GlobalTemplateValues, clientSet *kubernetes.Clientset, templateFileName string) Client {
+	return &podClient{
 		globalTemplateValues: globalTemplateValues,
-		restClient:           clientSet.ExtensionsV1beta1().RESTClient(),
-		resourcePluralForm:   "ingresses",
+		restClient:           clientSet.CoreV1().RESTClient(),
+		resourcePluralForm:   "pods",
 		templateFileName:     templateFileName,
 	}
 }
 
-func (c *ingressClient) Reify(templateValues interface{}) ([]byte, error) {
+func (c *podClient) Reify(templateValues interface{}) ([]byte, error) {
 	result, err := reify.Reify(c.templateFileName, templateValues, c.globalTemplateValues)
 	if err != nil {
 		return nil, err
@@ -40,7 +41,7 @@ func (c *ingressClient) Reify(templateValues interface{}) ([]byte, error) {
 	return result, nil
 }
 
-func (c *ingressClient) Create(namespace string, templateValues interface{}) error {
+func (c *podClient) Create(namespace string, templateValues interface{}) error {
 	resourceBody, err := c.Reify(templateValues)
 	if err != nil {
 		return err
@@ -65,7 +66,7 @@ func (c *ingressClient) Create(namespace string, templateValues interface{}) err
 	return nil
 }
 
-func (c *ingressClient) Delete(namespace, name string) error {
+func (c *podClient) Delete(namespace, name string) error {
 	request := c.restClient.Delete().
 		Namespace(namespace).
 		Resource(c.resourcePluralForm).
@@ -76,8 +77,8 @@ func (c *ingressClient) Delete(namespace, name string) error {
 	return request.Do().Error()
 }
 
-func (c *ingressClient) Get(namespace, name string) (result runtime.Object, err error) {
-	result = &v1beta1.Ingress{}
+func (c *podClient) Get(namespace, name string) (result runtime.Object, err error) {
+	result = &corev1.Pod{}
 	opts := metav1.GetOptions{}
 	err = c.restClient.Get().
 		Namespace(namespace).
@@ -90,9 +91,15 @@ func (c *ingressClient) Get(namespace, name string) (result runtime.Object, err 
 	return result, err
 }
 
-func (c *ingressClient) List(namespace string, labels map[string]string) (result []metav1.Object, err error) {
-	list := &v1beta1.IngressList{}
+func (c *podClient) List(namespace string, labels map[string]string) (result []metav1.Object, err error) {
+	list := &corev1.PodList{}
+
 	opts := metav1.ListOptions{}
+	if len(labels) > 0 {
+		selector := apilabels.SelectorFromSet(apilabels.Set(labels))
+		opts = metav1.ListOptions{LabelSelector: selector.String()}
+	}
+
 	err = c.restClient.Get().
 		Namespace(namespace).
 		Resource(c.resourcePluralForm).
@@ -111,14 +118,33 @@ func (c *ingressClient) List(namespace string, labels map[string]string) (result
 	return
 }
 
-func (c *ingressClient) IsEphemeral() bool {
+func (c *podClient) IsEphemeral() bool {
 	return true
 }
 
-func (c *ingressClient) Plural() string {
+func (c *podClient) Plural() string {
 	return c.resourcePluralForm
 }
 
-func (c *ingressClient) IsFailed(namespace string, name string) bool {
+func (c *podClient) IsFailed(namespace string, name string) bool {
+	p, err := c.Get(namespace, name)
+	if err != nil {
+		return false
+	}
+	pod, ok := p.(*corev1.Pod)
+	if !ok {
+		panic("object was not a *corev1.Pod")
+	}
+
+	if pod.Status.Phase == corev1.PodFailed {
+		return true
+	}
+
+	for _, status := range pod.Status.ContainerStatuses {
+		if !status.Ready && status.RestartCount > 0 {
+			return true
+		}
+	}
+
 	return false
 }
