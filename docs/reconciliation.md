@@ -89,3 +89,5 @@ _NOTE: These rules apply in order from top to bottom._
 | *              | *           | Failed, Non-ephemeral                      | Set custom resource state to failed.    |
 | Running        | *           | Completed                                  | Do nothing.                             |
 | Completed      | *           | Completed                                  | Set custom resource state to completed. |
+
+An alternative view of this logic can be seen here: [![logic-table](./reconciliation-transitions.png)](https://docs.google.com/spreadsheets/d/1M8k54H1wk3v8ohnq1swTn-MmOKIcy9qgoKMvfV1wVpk/edit#gid=0)
