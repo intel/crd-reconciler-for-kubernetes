@@ -62,6 +62,10 @@ func (trc *testResourceClient) IsEphemeral() bool {
 	return true
 }
 
+func (trc *testResourceClient) GetStatusState(obj runtime.Object) states.State {
+	return states.Running
+}
+
 type testCRDClient struct{}
 
 func (t *testCRDClient) Create(crd crd.CustomResource) error { return nil }

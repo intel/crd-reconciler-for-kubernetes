@@ -111,6 +111,15 @@ func (r *Reconciler) run() {
 	}
 }
 
+// TODO(CD): groupSubresourcesByCustomResource() doesn't work for a custom
+// resource with no sub-resource(s) or the sub-resource have been deleted.
+// As resourceClient.List() will not have any sub-resource belonging to the
+// custom resource, result will not have the controller name as one of its
+// keys.
+//
+// To fix the problem, we could do a List from the CR client and then iterate
+// over those names instead of keys from the intermediate result map we built
+// based on the subresources.
 func (r *Reconciler) groupSubresourcesByCustomResource() subresourceMap {
 	result := subresourceMap{}
 	for _, resourceClient := range r.resourceClients {
@@ -223,13 +232,13 @@ func (r *Reconciler) planAction(controllerName string, subs subresources) (*acti
 		return &action{}, nil, fmt.Errorf("object retrieved from CRD client not an instance of crd.CustomResource: [%v]", crObj)
 	}
 
-	customResourceSpec := cr.GetSpecState()
-	customResourceStatus := cr.GetStatusState()
+	customResourceSpecState := cr.GetSpecState()
+	customResourceStatusState := cr.GetStatusState()
 
 	// If the desired custom resource state is running or completed AND
 	// the custom resource is in a terminal state, then delete all subresources.
-	if customResourceSpec.IsOneOf(states.Running, states.Completed) &&
-		customResourceStatus.IsOneOf(states.Completed, states.Failed) {
+	if customResourceSpecState.IsOneOf(states.Running, states.Completed) &&
+		customResourceStatusState.IsOneOf(states.Completed, states.Failed) {
 		return &action{subresourcesToDelete: subs}, nil, nil
 	}
 
@@ -237,8 +246,8 @@ func (r *Reconciler) planAction(controllerName string, subs subresources) (*acti
 	// the current custom resource status is non-terminal, ANY non-ephemeral
 	// subresource that is failed, does not exist or has been deleted causes
 	// the custom resource current state to move to failed.
-	if customResourceSpec.IsOneOf(states.Running, states.Completed) &&
-		customResourceStatus.IsOneOf(states.Pending, states.Running) {
+	if customResourceSpecState.IsOneOf(states.Running, states.Completed) &&
+		customResourceStatusState.IsOneOf(states.Pending, states.Running) {
 		if subs.any(func(s *subresource) bool {
 			return !s.client.IsEphemeral() &&
 				s.lifecycle.isOneOf(doesNotExist, deleting) ||
@@ -255,7 +264,7 @@ func (r *Reconciler) planAction(controllerName string, subs subresources) (*acti
 	// the current custom resource status is pending or running, then if ANY
 	// subresource is completed, set the current custom resource state to
 	// completed.
-	if customResourceSpec == states.Completed && customResourceStatus.IsOneOf(states.Pending, states.Running) {
+	if customResourceSpecState == states.Completed && customResourceStatusState.IsOneOf(states.Pending, states.Running) {
 		if subs.any(func(s *subresource) bool {
 			return s.client.GetStatusState(s.object) == states.Completed
 		}) {
@@ -269,8 +278,8 @@ func (r *Reconciler) planAction(controllerName string, subs subresources) (*acti
 	// If the desired custom resource state is running or completed AND
 	// the current custom resource state is pending or running, then
 	// re-create any nonexisting ephemeral subresources.
-	if customResourceSpec.IsOneOf(states.Running, states.Completed) &&
-		customResourceStatus.IsOneOf(states.Pending, states.Running) {
+	if customResourceSpecState.IsOneOf(states.Running, states.Completed) &&
+		customResourceStatusState.IsOneOf(states.Pending, states.Running) {
 		toRecreate := subs.filter(func(s *subresource) bool {
 			return s.client.IsEphemeral() &&
 				(s.lifecycle == exists && s.client.GetStatusState(s.object) == states.Failed ||
@@ -287,8 +296,8 @@ func (r *Reconciler) planAction(controllerName string, subs subresources) (*acti
 	// the current custom resource state is running AND
 	// ANY subresource is pending, then set the current custom resource state
 	// to pending.
-	if customResourceSpec.IsOneOf(states.Running, states.Completed) &&
-		customResourceStatus == states.Running {
+	if customResourceSpecState.IsOneOf(states.Running, states.Completed) &&
+		customResourceStatusState == states.Running {
 		if subs.any(func(s *subresource) bool {
 			return s.client.GetStatusState(s.object) == states.Pending
 		}) {
@@ -303,8 +312,8 @@ func (r *Reconciler) planAction(controllerName string, subs subresources) (*acti
 	// the current custom resource state is pending AND
 	// ALL subresources are running, then set the current custom resource state
 	// to running.
-	if customResourceSpec.IsOneOf(states.Running, states.Completed) &&
-		customResourceStatus == states.Pending {
+	if customResourceSpecState.IsOneOf(states.Running, states.Completed) &&
+		customResourceStatusState == states.Pending {
 		// All resources must be running for us to consider the custom resource as running.
 		if subs.all(func(s *subresource) bool {
 			return s.client.GetStatusState(s.object) == states.Running
