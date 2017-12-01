@@ -1,6 +1,13 @@
 all: validate
 
-validate: validate_stream_prediction validate_model_training
+validate: validate_stream_prediction validate_model_training validate_interactive
+
+validate_interactive:
+	# Positive tests
+	jsonschema -i examples/interactive-session-valid-1.json interactive-session-spec.json
+
+	# Negative tests
+	(jsonschema -i examples/interactive-session-invalid-1.json interactive-session-spec.json 2> /dev/null ; test $$? -eq 1)
 
 validate_model_training:
 	# Positive tests
