@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/NervanaSystems/kube-controllers-go/pkg/resource/reify"
+	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 )
 
 type podClient struct {
@@ -131,20 +132,30 @@ func (c *podClient) IsFailed(namespace string, name string) bool {
 	if err != nil {
 		return false
 	}
-	pod, ok := p.(*corev1.Pod)
+	return c.isFailed(p)
+}
+
+func (c *podClient) isFailed(obj runtime.Object) bool {
+	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		panic("object was not a *corev1.Pod")
 	}
-
 	if pod.Status.Phase == corev1.PodFailed {
 		return true
 	}
-
 	for _, status := range pod.Status.ContainerStatuses {
 		if !status.Ready && status.RestartCount > 0 {
 			return true
 		}
 	}
-
 	return false
+}
+
+func (c *podClient) GetStatusState(obj runtime.Object) states.State {
+	if c.isFailed(obj) {
+		return states.Failed
+	}
+
+	// TODO(CD): Detect Pending, Completed and Failed states.
+	return states.Running
 }

@@ -173,7 +173,7 @@ func (c *deploymentClient) isFailed(obj runtime.Object) bool {
 
 	// List all the pods with the same labels as the deployment and check if
 	// they have failed.
-	podList, err := podClient.List(namespace, dep.ObjectMeta.Labels)
+	podList, err := podClient.List(dep.ObjectMeta.Namespace, dep.ObjectMeta.Labels)
 	if err != nil {
 		return false
 	}
