@@ -69,7 +69,7 @@ action if necessary.
 
 _NOTE: These rules apply in order from top to bottom._
 
-| CR desired     | CR status   | Sub-resource current state                 | Action                                  |
+| CR desired     | CR status   | Sub-resource status                        | Action                                  |
 |:---------------|:------------|:-------------------------------------------|:----------------------------------------|
 | Failed         | *           | *                                          | Do nothing.                             |
 | *              | Failed      | *                                          | Delete sub-resource.                    |
