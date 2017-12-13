@@ -26,6 +26,10 @@ docker:
 
 controllers: stream-prediction model-training example
 
+code-generation:
+	/go/bin/deepcopy-gen --output-base=/go/src --input-dirs=github.com/NervanaSystems/kube-controllers-go/pkg/crd/fake/... --output-package=pkg/crd/fake
+	/go/bin/deepcopy-gen --output-base=/go/src --input-dirs=github.com/NervanaSystems/kube-controllers-go/pkg/resource/fake/... --output-package=pkg/resource/fake
+
 stream-prediction:
 	(cd cmd/stream-prediction-controller && make)
 
@@ -75,7 +79,7 @@ install-linter:
 	gometalinter --install
 
 lint:
-	gometalinter --config=lint.json ./pkg/...
+	gometalinter --config=lint.json --disable=golint ./pkg/...
 
 validate-schemas:
 	(cd api/crd && make)
