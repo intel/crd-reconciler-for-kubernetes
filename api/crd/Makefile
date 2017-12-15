@@ -1,6 +1,13 @@
 all: validate
 
-validate: validate_stream_prediction validate_model_training validate_interactive
+validate: validate_stream_prediction validate_model_training validate_interactive validate_batch_prediction
+
+validate_batch_prediction:
+	# Positive tests
+	jsonschema -i examples/batch-prediction-job-valid-1.json batch-prediction-job-spec.json
+
+	# Negative tests
+	(jsonschema -i examples/batch-prediction-job-invalid-1.json batch-prediction-job-spec.json 2> /dev/null ; test $$? -eq 1)
 
 validate_interactive:
 	# Positive tests
