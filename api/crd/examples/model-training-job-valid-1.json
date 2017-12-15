@@ -1,10 +1,6 @@
 {
     "apiVersion": "aipg.intel.com/v1",
     "kind": "ModelTraining",
-    "metadata": {
-        "jobID": 3,
-        "tenantID": 20
-    },
     "spec": {
         "state": "Running",
         "containerSpec": {
@@ -13,8 +9,8 @@
             "sidecarImage": "image2",
             "nflImage": "image3"
         },
-        "sandboxS3URL": "s3://baz/bar",
-        "volumesS3URLs": [
+        "sandboxS3URLPath": "s3://baz/bar",
+        "volumeS3URLs": [
             "s3://baz/foo",
             "s3://baz/baz"
         ],

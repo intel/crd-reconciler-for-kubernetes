@@ -61,7 +61,7 @@
       "required": ["URL", "commit"],
       "description": "Describes a git repository to pull into the container at runtime",
       "properties": {
-        "URL": {
+        "url": {
           "type": "string",
           "description": "Git URL of repository"
         },
@@ -76,7 +76,7 @@
       }
     }
   },
-  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "required": ["apiVersion", "kind", "spec"],
   "properties": {
     "apiVersion": {
       "$ref": "#/definitions/apiVersion"
@@ -86,25 +86,10 @@
       "description": "Job type. Only allowed value is 'ModelTraining'",
       "enum": [ "ModelTraining" ]
     },
-    "metadata": {
-      "type": "object",
-      "description": "Kubernetes metadata",
-      "required": ["jobID", "tenantID"],
-      "properties": {
-        "jobID": {
-          "type": "number",
-          "description": "Model training job id"
-        },
-        "tenantID": {
-          "type": "number",
-          "description": "ID of tenant owning this model training job"
-        }
-      }
-    },
     "spec": {
       "type": "object",
       "description": "The specification for the job and encode all information needed to run the model training job. The job controllers will monitor for changes continously and act based on the desired state encoded here",
-      "required": ["state", "containerSpec", "sandboxS3URL", "jobID", "tenantID"],
+      "required": ["state", "containerSpec", "sandboxS3URLPath", "jobID", "tenantID"],
       "properties": {
         "state": {
           "$ref": "#/definitions/state"
@@ -118,7 +103,7 @@
         "sandboxS3URL": {
           "$ref": "#/definitions/s3URL"
         },
-        "volumesS3URLs": {
+        "volumeS3URLs": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/s3URL"

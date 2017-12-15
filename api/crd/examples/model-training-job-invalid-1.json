@@ -12,8 +12,8 @@
         "containerSpec": {
             "command": "foo.py bar baz"
         },
-        "sandboxS3URL": 3.0,
-        "volumesS3URLs": "s3://baz/baz",
+        "sandboxS3URLPath": 3.0,
+        "volumeS3URLs": "s3://baz/baz",
         "repositories": [
             {
                 "URL": 5,
