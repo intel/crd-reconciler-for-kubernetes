@@ -34,12 +34,12 @@ func handlerFuncs(h Hooks) cache.ResourceEventHandlerFuncs {
 type Controller struct {
 	CRD    *crd.Handle
 	Hooks  Hooks
-	Client *rest.RESTClient
+	Client rest.Interface
 	Scheme *runtime.Scheme
 }
 
 // New returns a new Controller.
-func New(handle *crd.Handle, hooks Hooks, client *rest.RESTClient) *Controller {
+func New(handle *crd.Handle, hooks Hooks, client rest.Interface) *Controller {
 	return &Controller{
 		CRD:    handle,
 		Hooks:  hooks,

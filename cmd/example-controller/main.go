@@ -145,7 +145,7 @@ func main() {
 	<-ctx.Done()
 }
 
-func waitForExampleInstanceProcessed(crdClient *rest.RESTClient, name string) error {
+func waitForExampleInstanceProcessed(crdClient rest.Interface, name string) error {
 	return wait.Poll(100*time.Millisecond, 10*time.Second, func() (bool, error) {
 		var example crv1.Example
 		err := crdClient.Get().

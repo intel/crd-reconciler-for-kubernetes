@@ -11,7 +11,7 @@ GODEBUGGER ?= gdb
 all: controllers
 
 test: lint validate-schemas
-	go test --cover ./pkg/...
+	go test -cover -v ./pkg/...
 
 dep:
 	docker build \

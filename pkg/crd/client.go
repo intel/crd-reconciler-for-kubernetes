@@ -28,11 +28,11 @@ type Client interface {
 	Update(crd CustomResource) (runtime.Object, error)
 	Delete(namespace string, name string) error
 	Validate(crd CustomResource) error
-	RESTClient() *rest.RESTClient
+	RESTClient() rest.Interface
 }
 
 type client struct {
-	restClient *rest.RESTClient
+	restClient rest.Interface
 	handle     *Handle
 }
 
@@ -58,7 +58,7 @@ func NewClient(config rest.Config, h *Handle) (Client, error) {
 	return &client{restClient, h}, nil
 }
 
-func (c *client) RESTClient() *rest.RESTClient {
+func (c *client) RESTClient() rest.Interface {
 	return c.restClient
 }
 

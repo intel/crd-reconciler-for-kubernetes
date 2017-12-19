@@ -17,7 +17,7 @@ type ClientImpl struct {
 
 // returns a fake RESTClient.
 // TODO Not used in unit tests, returns nil
-func (c *ClientImpl) RESTClient() *rest.RESTClient {
+func (c *ClientImpl) RESTClient() rest.Interface {
 	return nil
 }
 
