@@ -72,7 +72,7 @@ spec:
         - name: STREAM_ID
           value: "{{.Spec.StreamDataSpec.StreamID}}"
         - name: WEIGHTS_FILENAME
-          value: "{{.Spec.StreamDataSpec.ModelPath}}"
+          value: "/code/{{.Spec.StreamDataSpec.ModelPath}}"
         - name: PYTHONPATH
           value: /code/cust/:/code/
         - name: MODEL_ENVIRONMENT
@@ -108,7 +108,7 @@ spec:
           value: "{{.Spec.KryptonRepoSpec.RepoURL}}"
         - name: KRYPTON_COMMIT
           value: "{{.Spec.KryptonRepoSpec.Commit}}"
-        - name: MODEL_PRM
+        - name: WEIGHTS_FILEPATH
           value: "{{.Spec.StreamDataSpec.ModelPRM}}"
         - name: DATASET_PATH
           value: "{{.Spec.StreamDataSpec.DatasetPath}}"
@@ -117,11 +117,15 @@ spec:
         - name: CUST_REPO_URL
           value: "{{.Spec.StreamDataSpec.CustomCodeURL}}"
         - name: CUST_COMMIT_ID
-          value: "{{.Spec.StreamDataSpec.CustomCodeURL}}"
+          value: "{{.Spec.StreamDataSpec.CustomCommit}}"
         - name: AWS_PREDICT_LOGS_PATH
           value: "{{.Spec.StreamDataSpec.AWSPath}}"
         - name: AWS_DEFAULT_REGION
           value: "{{.Spec.StreamDataSpec.AWSDefaultRegion}}"
+        - name: ENVIRONMENT
+          value: neon
+        - name: WEIGHTS_FILENAME
+          value: "{{.Spec.StreamDataSpec.ModelPath}}"
         volumeMounts:
         - name: code
           mountPath: /code/

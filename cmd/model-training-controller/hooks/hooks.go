@@ -38,8 +38,8 @@ func (h *ModelTrainingHooks) Add(obj interface{}) {
 
 	modelTrain := modelTrainingCrd.DeepCopy()
 
-	// If created with a terminal desired state. We immediately change the model training into that status.
-	if states.IsTerminal(modelTrain.Spec.State) {
+	// If created with a Failed desired state. We immediately change the model training into that status.
+	if modelTrain.Spec.State == states.Failed {
 		modelTrain.Status = crv1.ModelTrainingStatus{
 			State:   modelTrainingCrd.Spec.State,
 			Message: "Added. Detected in desired terminal state and controller marked model training as " + string(modelTrainingCrd.Spec.State),
@@ -127,29 +127,10 @@ func (h *ModelTrainingHooks) Update(oldObj, newObj interface{}) {
 
 	glog.V(4).Infof("Model Training update hook - got old: %v new: %v", oldModelTraining, newModelTraining)
 
-	// If the CR's spec has been updated to `Completed', then we delete
-	// subresources, and mark it as `Completed' in its status.
-	if newModelTraining.Spec.State == states.Completed {
-		glog.Infof(
-			"model training %s has been marked for undeployment",
-			newModelTraining)
-		h.deleteResources(newModelTraining)
-		newModelTraining.Status = crv1.ModelTrainingStatus{
-			State:   states.Completed,
-			Message: "Model training completed",
-		}
-		if _, err := h.crdClient.Update(newModelTraining); err != nil {
-			glog.Warningf("error updating status: %v\n", err)
-			return
-		}
-		glog.Infof("Successfully deleted subresources for model training %s", newModelTraining)
-		return
-	}
-
 	// If the CR has been marked to be in an Failed state, either by the
 	// sub-resource reconciler or during creation, we delete its sub-resources.
 	if newModelTraining.Status.State == states.Failed {
-		glog.Infof("model training %s is in an error state, "+
+		glog.Infof("model training %s is in a Failed state, "+
 			"deleting subresources",
 			newModelTraining.ObjectMeta.Name)
 		h.deleteResources(newModelTraining)

@@ -19,6 +19,7 @@ import (
 type jobClient struct {
 	globalTemplateValues GlobalTemplateValues
 	restClient           rest.Interface
+	k8sClientset         *kubernetes.Clientset
 	resourcePluralForm   string
 	templateFileName     string
 }
@@ -28,6 +29,7 @@ func NewJobClient(globalTemplateValues GlobalTemplateValues, clientSet *kubernet
 	return &jobClient{
 		globalTemplateValues: globalTemplateValues,
 		restClient:           clientSet.BatchV1().RESTClient(),
+		k8sClientset:         clientSet,
 		resourcePluralForm:   "jobs",
 		templateFileName:     templateFileName,
 	}
@@ -110,7 +112,10 @@ func (c *jobClient) List(namespace string, labels map[string]string) (result []m
 	}
 
 	for _, item := range list.Items {
-		result = append(result, &item)
+		// We need a copy of the item here because item has function scope whereas the copy below has a local scope.
+		// Ex: When we iterate through items, the result list will only contain multiple copies of the last item in the list.
+		jobCopy := item
+		result = append(result, &jobCopy)
 	}
 
 	return
@@ -121,6 +126,61 @@ func (c *jobClient) Plural() string {
 }
 
 func (c *jobClient) IsFailed(namespace string, name string) bool {
+
+	obj, err := c.Get(namespace, name)
+	if err != nil {
+		return false
+	}
+
+	return c.isFailed(obj)
+}
+
+func (c *jobClient) isFailed(obj runtime.Object) bool {
+	job, ok := obj.(*batchv1.Job)
+	if !ok {
+		panic("Object was not a *batchv1.Job")
+	}
+
+	// We need to check the pod status before job status as the job status is not set if a container in the pod is in an error state.
+
+	// If the job is not in a failed state we inspect whether the
+	// containers controlled by the job are healthy.
+	// This is required because the definition of pod failure in kubernetes is
+	// strict. The pod is considered failed iff all containers in the pod have
+	// terminated, and at least one container has terminated in a failure (exited
+	// with a non-zero exit code or was stopped by the system).
+	podClient := NewPodClient(GlobalTemplateValues{}, c.k8sClientset, "")
+
+	// List all the pods with the same labels as the job and check if
+	// they have failed.
+	podList, err := podClient.List(job.ObjectMeta.Namespace, job.ObjectMeta.Labels)
+	if err != nil {
+		return false
+	}
+
+	for _, pod := range podList {
+		if podClient.IsFailed(pod.GetNamespace(), pod.GetName()) {
+			return true
+		}
+	}
+
+	conditions := job.Status.Conditions
+	if len(conditions) == 0 {
+		return false
+	}
+	latestCondition := conditions[0]
+	for i := range conditions {
+		time1 := &latestCondition.LastTransitionTime
+		time2 := &conditions[i].LastTransitionTime
+		if time1.Before(time2) {
+			latestCondition = conditions[i]
+		}
+	}
+
+	if latestCondition.Type == batchv1.JobFailed {
+		return true
+	}
+
 	return false
 }
 
@@ -128,7 +188,42 @@ func (c *jobClient) IsEphemeral() bool {
 	return false
 }
 
+func (c *jobClient) isCompleted(obj runtime.Object) bool {
+
+	job, ok := obj.(*batchv1.Job)
+	if !ok {
+		panic("Object was not a *batchv1.Job")
+	}
+
+	conditions := job.Status.Conditions
+	if len(conditions) == 0 {
+		return false
+	}
+	latestCondition := conditions[0]
+	for i := range conditions {
+		time1 := &latestCondition.LastTransitionTime
+		time2 := &conditions[i].LastTransitionTime
+		if time1.Before(time2) {
+			latestCondition = conditions[i]
+		}
+	}
+
+	if latestCondition.Type == batchv1.JobComplete {
+		return true
+	}
+	return false
+}
+
 func (c *jobClient) GetStatusState(obj runtime.Object) states.State {
 	// TODO(CD): Detect Pending, Completed and Failed states.
+
+	if c.isCompleted(obj) {
+		return states.Completed
+	}
+
+	if c.isFailed(obj) {
+		return states.Failed
+	}
+
 	return states.Running
 }

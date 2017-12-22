@@ -106,7 +106,10 @@ func (c *hpaClient) List(namespace string, labels map[string]string) (result []m
 	}
 
 	for _, item := range list.Items {
-		result = append(result, &item)
+		// We need a copy of the item here because item has function scope whereas the copy below has a local scope.
+		// Ex: When we iterate through items, the result list will only contain multiple copies of the last item in the list.
+		hpaCopy := item
+		result = append(result, &hpaCopy)
 	}
 
 	return

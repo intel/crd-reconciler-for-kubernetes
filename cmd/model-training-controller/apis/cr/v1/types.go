@@ -88,15 +88,16 @@ func (s *ModelTraining) SetStatusStateWithMessage(state states.State, msg string
 
 // ModelTrainingSpec is the spec for the crd.
 type ModelTrainingSpec struct {
-	JobID            string        `json:"jobID"`
-	TenantID         string        `json:"tenantID"`
-	ContainerSpec    ContainerSpec `json:"containerSpec"`
-	SandboxS3URLPath string        `json:"sandboxS3URLPath"`
-	VolumeS3URLs     []S3URL       `json:"volumeS3URLs"`
-	Repositories     []Repository  `json:"repositories"`
-	MetricsURL       string        `json:"metricsURL"`
-	State            states.State  `json:"state"`
-	ResourceSpec     ResourceSpec  `json:"resourceSpec"`
+	JobID             string        `json:"jobID"`
+	TenantID          string        `json:"tenantID"`
+	ContainerSpec     ContainerSpec `json:"containerSpec"`
+	SandboxS3URLPath  string        `json:"sandboxS3URLPath"`
+	VolumeS3URLs      []S3URL       `json:"volumeS3URLs"`
+	Repositories      []Repository  `json:"repositories"`
+	MetricsURL        string        `json:"metricsURL"`
+	State             states.State  `json:"state"`
+	ResourceSpec      ResourceSpec  `json:"resourceSpec"`
+	ContinuationS3URL S3URL         `json:"continuationS3URL"`
 }
 
 // ContainerSpec is the commands that are required to run Neon training.

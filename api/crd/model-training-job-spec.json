@@ -35,11 +35,8 @@
           "description": "Base image of Neon container. If not present, default will be used."
         },
         "command": {
-          "type": "array",
-          "description": "Command executed as entrypoint to the container. First item should be the binary to execute.",
-          "items": {
-            "type": "string"
-          }
+          "type": "string",
+          "description": "Command executed as entrypoint to the container. First item should be the binary to execute."
         },
         "sidecarImage": {
           "type": "string",
@@ -58,7 +55,7 @@
     },
     "repoSpec": {
       "type": "object",
-      "required": ["URL", "commit"],
+      "required": ["url", "commit"],
       "description": "Describes a git repository to pull into the container at runtime",
       "properties": {
         "url": {

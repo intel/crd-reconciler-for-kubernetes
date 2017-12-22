@@ -22,6 +22,7 @@ import (
 	"github.com/NervanaSystems/kube-controllers-go/pkg/crd"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/util"
+	batchv1 "k8s.io/api/batch/v1"
 )
 
 const NAMESPACE = "e2e-test"
@@ -86,7 +87,8 @@ func makeModelTraining(modelName string) *crv1.ModelTraining {
 					Commit: "fakeCommit3",
 				},
 			},
-			State: states.Running,
+			ContinuationS3URL: "s3:continuationS3URL",
+			State:             states.Completed,
 			ResourceSpec: crv1.ResourceSpec{
 				Requests: map[string]resource.Quantity{
 					"cpu":    resource.MustParse("1"),
@@ -98,6 +100,25 @@ func makeModelTraining(modelName string) *crv1.ModelTraining {
 		Status: crv1.ModelTrainingStatus{
 			State:   states.Pending,
 			Message: "Created, not processed",
+		},
+	}
+}
+
+func makePodWithLabels(podName string, labels map[string]string) *apiv1.Pod {
+	var containers []apiv1.Container
+	ctn := apiv1.Container{
+		Name:  "fakecontainername",
+		Image: "busybox",
+	}
+	containers = append(containers, ctn)
+
+	return &apiv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   podName,
+			Labels: labels,
+		},
+		Spec: apiv1.PodSpec{
+			Containers: containers,
 		},
 	}
 }
@@ -148,15 +169,123 @@ func TestModelTraining(t *testing.T) {
 	refresh(t, copy, crdClient)
 	testSpec(t, copy, &(original.Spec))
 
-	// Right now it's in Running. Try changing it to Completed and check if all the resources are deleted.
-	refresh(t, copy, crdClient)
-	copy.Spec.State = states.Completed
-
-	_, err = crdClient.Update(copy)
+	// Get the job and set it's status to Completed.
+	job := &batchv1.Job{}
+	job, err = k8sClient.BatchV1().
+		Jobs(NAMESPACE).Get(modelName, metav1.GetOptions{})
 	require.Nil(t, err)
+	require.NotNil(t, job)
+
+	jobConditions := job.Status.Conditions
+	jobConditions = append(jobConditions, batchv1.JobCondition{
+		Type:               batchv1.JobComplete,
+		Status:             apiv1.ConditionTrue,
+		LastProbeTime:      metav1.Now(),
+		LastTransitionTime: metav1.Now(),
+	})
+
+	job.Status.Conditions = jobConditions
+	completedJob, err := k8sClient.BatchV1().
+		Jobs(NAMESPACE).UpdateStatus(job)
+	require.Nil(t, err)
+	require.NotNil(t, completedJob)
+	require.Equal(t, completedJob.Status.Conditions[0].Type, batchv1.JobComplete)
 
 	refresh(t, copy, crdClient)
 	checkModelTrainingState(t, copy, crdClient, modelName, k8sClient, NAMESPACE, states.Completed, false)
+
+	err = crdClient.Delete(NAMESPACE, modelName)
+	require.Nil(t, err)
+
+	modelTrainingList := &crv1.ModelTrainingList{}
+	require.Nil(t, crdClient.RESTClient().
+		Get().
+		Resource(crv1.ModelTrainingResourcePlural).
+		Do().
+		Into(modelTrainingList))
+	require.Equal(t, len(modelTrainingList.Items), 0)
+}
+
+func TestModelTrainingPodFailed(t *testing.T) {
+	crdClient, k8sClient := makeClients(t)
+
+	modelName := fmt.Sprintf("model%s", strings.ToLower(ksuid.New().String()))
+	original := makeModelTraining(modelName)
+
+	copy := &crv1.ModelTraining{}
+	err := crdClient.RESTClient().Post().
+		Resource(crv1.ModelTrainingResourcePlural).
+		Namespace(NAMESPACE).
+		Body(original).
+		Do().
+		Into(copy)
+
+	if err == nil {
+		t.Logf("Created model training job: %#v\n", copy)
+	} else if apierrors.IsAlreadyExists(err) {
+		t.Errorf("model training job already exists: %#v\n", copy)
+	} else {
+		t.Fatal(err)
+	}
+
+	// Check whether the job was created successfully
+	refresh(t, copy, crdClient)
+	testSpec(t, copy, &(original.Spec))
+
+	// Check whether the job was processed.
+	// In the Running state, all subresources should exist.
+	checkModelTrainingState(t, copy, crdClient, modelName, k8sClient, NAMESPACE, states.Running, true)
+
+	refresh(t, copy, crdClient)
+	testSpec(t, copy, &(original.Spec))
+
+	// Update the job condition to ReplicaFailure.
+	job := &batchv1.Job{}
+	job, err = k8sClient.BatchV1().
+		Jobs(NAMESPACE).Get(modelName, metav1.GetOptions{})
+	require.Nil(t, err)
+	require.NotNil(t, job)
+
+	// Create a pod with same labels as job.
+	pod := makePodWithLabels("fakepodmt", job.ObjectMeta.Labels)
+	pod, err = k8sClient.CoreV1().Pods(NAMESPACE).Create(pod)
+
+	// Make sure the pod was created.
+	require.Nil(t, err)
+	require.NotNil(t, pod)
+	require.Nil(t, waitPoll(func() (bool, error) {
+		pod, err = k8sClient.CoreV1().
+			Pods(NAMESPACE).Get("fakepodmt", metav1.GetOptions{})
+		if err == nil {
+			return true, nil
+		}
+		return false, err
+	}))
+
+	// Update the pod container status to not ready and set restart count > 0.
+	var containerStatuses []apiv1.ContainerStatus
+	containerStatuses = append(containerStatuses, apiv1.ContainerStatus{
+		Name:  "fakecontainername",
+		Ready: false,
+		State: apiv1.ContainerState{
+			Terminated: &apiv1.ContainerStateTerminated{
+				ExitCode: 1,
+			},
+		},
+	})
+	pod.Status.ContainerStatuses = containerStatuses
+	failedPod, err := k8sClient.CoreV1().Pods(NAMESPACE).UpdateStatus(pod)
+
+	// Make sure the pod was updated.
+	require.Nil(t, err)
+	require.NotNil(t, failedPod)
+	require.Equal(t, failedPod.Status.ContainerStatuses[0].Ready, false)
+	require.Equal(t, failedPod.Status.ContainerStatuses[0].State.Terminated.ExitCode, int32(1))
+
+	// Check whether the GC and reconciler kicks-in:
+	// - updates the job status state to Failed
+	// - deletes all the sub-resources as the custom resource failed
+	checkModelTrainingState(t, copy, crdClient, modelName, k8sClient, NAMESPACE, states.Failed, false)
 
 	err = crdClient.Delete(NAMESPACE, modelName)
 	require.Nil(t, err)

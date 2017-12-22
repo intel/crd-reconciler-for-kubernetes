@@ -335,7 +335,7 @@ func (r *Reconciler) executeAction(controllerName string, cr crd.CustomResource,
 	glog.V(4).Infof(`executing reconcile action for "%s" resource "%s" in namespace "%s"`, r.crdHandle.Plural, controllerName, r.namespace)
 	if a.newCRState != "" {
 		glog.Infof(`updating "%s" custom resource for controller "%s" in namespace "%s"`, r.crdHandle.Plural, controllerName, r.namespace)
-		cr.SetStatusStateWithMessage(states.Failed, a.newCRReason)
+		cr.SetStatusStateWithMessage(a.newCRState, a.newCRReason)
 		_, err := r.crdClient.Update(cr)
 		if err != nil {
 			glog.Errorf(`error updating custom resource state for "%s" in namespace "%s"`, controllerName, r.namespace)

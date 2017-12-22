@@ -3,6 +3,11 @@ kind: Job
 metadata:
   name: "{{.ObjectMeta.Name}}"
   namespace: "{{.ObjectMeta.Namespace}}"
+  labels:
+    run: "{{.ObjectMeta.Name}}"
+    type: model-training
+    jobid: "{{.Spec.JobID}}"
+    tenantid: "{{.Spec.TenantID}}"
   ownerReferences:
   - apiVersion: {{.APIVersion}}
     kind: {{.Kind}}
@@ -86,11 +91,11 @@ spec:
         imagePullPolicy: Always
         resources:
           limits:
-            cpu: 100m
-            memory: 100Mi
+            cpu: 200m
+            memory: 400Mi
           requests:
-            cpu: 100m
-            memory: 100Mi
+            cpu: 200m
+            memory: 400Mi
         volumeMounts:
         - name: code
           mountPath: /code/
@@ -121,6 +126,8 @@ spec:
             value: "/datasets"
           - name: STOCKDATA_DIR
             value: "/var/neon/datasets"
+          - name: CONTINUATION_S3_URL
+            value: "{{ .Spec.ContinuationS3URL }}"
       - name: nfl
         image: "{{ .Spec.ContainerSpec.NFLImage }}"
         imagePullPolicy: Always

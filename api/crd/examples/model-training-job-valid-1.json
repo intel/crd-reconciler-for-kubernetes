@@ -4,7 +4,7 @@
     "spec": {
         "state": "Running",
         "containerSpec": {
-            "command": ["foo.py", "bar", "baz"],
+            "command": "foo.py bar baz",
             "image": "image1",
             "sidecarImage": "image2",
             "nflImage": "image3"
@@ -16,12 +16,12 @@
         ],
         "repositories": [
             {
-                "URL": "git://git@github.com/foo/bar",
+                "url": "git://git@github.com/foo/bar",
                 "commit": "v0.1.0",
                 "name": "bar"
             },
             {
-                "URL": "https://github.com/baz/foo",
+                "url": "https://github.com/baz/foo",
                 "commit": "master",
                 "name": "foo"
             }
