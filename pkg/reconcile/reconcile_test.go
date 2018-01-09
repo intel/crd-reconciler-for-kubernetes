@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"fmt"
+	"github.com/NervanaSystems/kube-controllers-go/pkg/crd/fake"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/resource"
 	rf "github.com/NervanaSystems/kube-controllers-go/pkg/resource/fake"
 	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
@@ -53,11 +54,12 @@ func compareSubresourceMaps(expected subresourceMap, actual subresourceMap) func
 
 func TestGroupSubresourcesByCustomResource(t *testing.T) {
 	controllerRef := true
+	typeMeta := metav1.TypeMeta{"example", "example"}
 	tests := map[string]struct {
-		namespace                   string
-		gvk                         schema.GroupVersionKind
-		resourceClients             []resource.Client
-		expectedEmptysubResourceMap bool
+		namespace       string
+		gvk             schema.GroupVersionKind
+		resourceClients []resource.Client
+		crList          fake.CustomResourceListImpl
 	}{
 		"no subresources under this CR": {
 			namespace: "namespace1",
@@ -72,7 +74,16 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 					PluralValue: "interactivesessions",
 				},
 			},
-			expectedEmptysubResourceMap: true,
+			crList: fake.CustomResourceListImpl{
+				Items: []fake.CustomResourceImpl{
+					{
+						typeMeta,
+						metav1.ObjectMeta{Name: "interactive1"},
+						states.Running,
+						states.Running,
+					},
+				},
+			},
 		},
 		"no controller for a subresource": {
 			namespace: "namespace2",
@@ -96,7 +107,16 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 					},
 				},
 			},
-			expectedEmptysubResourceMap: true,
+			crList: fake.CustomResourceListImpl{
+				Items: []fake.CustomResourceImpl{
+					{
+						typeMeta,
+						metav1.ObjectMeta{Name: "stream1"},
+						states.Running,
+						states.Running,
+					},
+				},
+			},
 		},
 		"wrong controller for a subresource": {
 			namespace: "namespace3",
@@ -128,7 +148,16 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 					},
 				},
 			},
-			expectedEmptysubResourceMap: true,
+			crList: fake.CustomResourceListImpl{
+				Items: []fake.CustomResourceImpl{
+					{
+						typeMeta,
+						metav1.ObjectMeta{Name: "stream1"},
+						states.Running,
+						states.Running,
+					},
+				},
+			},
 		},
 		"valid controller ref, but not a valid runtime.Object": {
 			namespace: "namespace4",
@@ -153,7 +182,16 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 					},
 				},
 			},
-			expectedEmptysubResourceMap: true,
+			crList: fake.CustomResourceListImpl{
+				Items: []fake.CustomResourceImpl{
+					{
+						typeMeta,
+						metav1.ObjectMeta{Name: "stream1"},
+						states.Running,
+						states.Running,
+					},
+				},
+			},
 		},
 		"valid controller ref": {
 			namespace: "namespace5",
@@ -190,38 +228,71 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 					},
 				},
 			},
-			expectedEmptysubResourceMap: false,
+			crList: fake.CustomResourceListImpl{
+				Items: []fake.CustomResourceImpl{
+					{
+						typeMeta,
+						metav1.ObjectMeta{Name: "stream2"},
+						states.Running,
+						states.Running,
+					},
+				},
+			},
 		},
 	}
 
+	// Assumption:  Failure to convert an object into either a runtime.Object or a Subresource is considered as a
+	//				doesNotExist sub-resource.
 	for _, tc := range tests {
 		reconciler := &Reconciler{
 			namespace:       tc.namespace,
 			gvk:             tc.gvk,
 			crdHandle:       nil,
-			crdClient:       nil,
+			crdClient:       &fake.ClientImpl{CustomResourceListImpl: &tc.crList},
 			resourceClients: tc.resourceClients,
 		}
 		actual := reconciler.groupSubresourcesByCustomResource()
-		if tc.expectedEmptysubResourceMap {
-			assert.Empty(t, actual)
-		} else {
-			for controllerName := range actual {
-				expected := subresourceMap{}
-				// TODO ACCEN-207 reconciler should work with no subresources
-				if tc.resourceClients[0] != nil {
-					subResourceClient := tc.resourceClients[0].(*rf.SubresourceClient)
-					subResource := subResourceClient.Subresource.(*rf.Subresource)
-					sub := &subresource{
-						client:    subResourceClient,
-						object:    subResourceClient.Subresource.(runtime.Object),
-						lifecycle: lifecycle(subResource.Lifecycle),
-					}
-					expected[controllerName] = subresources{sub}
+
+		for controllerName := range actual {
+
+			expected := subresourceMap{}
+
+			if tc.resourceClients[0] != nil {
+				subResourceClient := tc.resourceClients[0].(*rf.SubresourceClient)
+
+				sub := &subresource{
+					client: subResourceClient,
 				}
-				assert.Condition(t, compareSubresourceMaps(expected, actual))
+				var lifecycleString lifecycle
+
+				subResourceObject, ok := subResourceClient.Subresource.(runtime.Object)
+				if !ok {
+					// This is not a valid object, it should be captured in does not exist
+					lifecycleString = doesNotExist
+				} else {
+					sub.object = subResourceObject
+				}
+
+				subResource, ok := subResourceClient.Subresource.(*rf.Subresource)
+				if !ok {
+					// This is not a valid object, it should be captured in does not exist
+					lifecycleString = doesNotExist
+				} else {
+					switch subResource.Lifecycle {
+					case string(exists), string(deleting):
+						lifecycleString = lifecycle(subResource.Lifecycle)
+					default:
+						lifecycleString = doesNotExist
+					}
+				}
+				sub.lifecycle = lifecycleString
+
+				expected[controllerName] = subresources{sub}
 			}
+			assert.Condition(t, compareSubresourceMaps(expected, actual))
+
 		}
+
 	}
 
 }

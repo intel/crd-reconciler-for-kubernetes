@@ -81,6 +81,9 @@ func (t *testCRDClient) Update(crd crd.CustomResource) (runtime.Object, error) {
 func (t *testCRDClient) Delete(namespace string, name string) error { return nil }
 func (t *testCRDClient) Validate(crd crd.CustomResource) error      { return nil }
 func (t *testCRDClient) RESTClient() rest.Interface                 { return nil }
+func (t *testCRDClient) List(namespace string, labels map[string]string) (runtime.Object, error) {
+	return &crv1.StreamPredictionList{Items: []crv1.StreamPrediction{}}, nil
+}
 
 func TestStreampredictionHooks(t *testing.T) {
 	sp := &crv1.StreamPrediction{

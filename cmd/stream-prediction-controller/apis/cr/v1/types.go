@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const GroupName = "aipg.intel.com"
@@ -144,4 +145,14 @@ type StreamPredictionList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 	Items           []StreamPrediction `json:"items"`
+}
+
+// GetItems returns the list of items to be used in the List api call for crs
+func (spl *StreamPredictionList) GetItems() []runtime.Object {
+	var result []runtime.Object
+	for _, item := range spl.Items {
+		spCopy := item
+		result = append(result, &spCopy)
+	}
+	return result
 }

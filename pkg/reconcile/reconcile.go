@@ -122,6 +122,23 @@ func (r *Reconciler) run() {
 // based on the subresources.
 func (r *Reconciler) groupSubresourcesByCustomResource() subresourceMap {
 	result := subresourceMap{}
+
+	// Get the list of crs.
+	crListObj, err := r.crdClient.List(r.namespace, map[string]string{})
+	if err != nil || crListObj == nil {
+		glog.Warningf("[reconcile] could not list custom resources. Got error %v %v", err, crListObj)
+		return result
+	}
+	customResourceList := crListObj.(crd.CustomResourceList)
+
+	// Get the list of custom resources
+	crList := customResourceList.GetItems()
+	// Return if the list is empty
+	if len(crList) == 0 {
+		glog.Warningf("[reconcile] custom resources list is empty")
+		return result
+	}
+
 	for _, resourceClient := range r.resourceClients {
 		objects, err := resourceClient.List(r.namespace, map[string]string{})
 		if err != nil {
@@ -163,10 +180,22 @@ func (r *Reconciler) groupSubresourcesByCustomResource() subresourceMap {
 		}
 	}
 
-	// Find non-existing subresources based on the expected subresource clients.
-	for controllerName, subs := range result {
-		// ASSUMPTION: There is at most one subresource of each kind per
-		//             custom resource. We use the plural form as a key.
+	// Iterate over the crs to get the list of missing sub resources
+	// ASSUMPTION: There is at most one subresource of each kind per
+	//             custom resource. We use the plural form as a key
+	for _, item := range crList {
+		cr, ok := item.(crd.CustomResource)
+		if !ok {
+			glog.Warningf("[reconcile] failed to assert item %v to type CustomResource", item)
+			continue
+		}
+
+		subs, ok := result[cr.Name()]
+		if !ok {
+			glog.Warningf("[reconcile] no sub-resources found for cr %v", cr.Name())
+		}
+
+		// Find non-existing subresources based on the expected subresource clients.
 		existingSubs := map[string]struct{}{}
 		for _, sub := range subs {
 			existingSubs[sub.client.Plural()] = struct{}{}
@@ -175,9 +204,10 @@ func (r *Reconciler) groupSubresourcesByCustomResource() subresourceMap {
 		for _, subClient := range r.resourceClients {
 			_, exists := existingSubs[subClient.Plural()]
 			if !exists {
-				result[controllerName] = append(subs, &subresource{subClient, nil, doesNotExist})
+				result[cr.Name()] = append(subs, &subresource{subClient, nil, doesNotExist})
 			}
 		}
+
 	}
 
 	return result

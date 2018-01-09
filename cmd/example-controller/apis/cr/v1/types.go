@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // GroupName is the group name used in this package.
@@ -89,4 +90,14 @@ type ExampleList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 	Items           []Example `json:"items"`
+}
+
+// GetItems returns the list of items to be used in the List api call for crs
+func (el *ExampleList) GetItems() []runtime.Object {
+	var result []runtime.Object
+	for _, item := range el.Items {
+		ecCopy := item
+		result = append(result, &ecCopy)
+	}
+	return result
 }

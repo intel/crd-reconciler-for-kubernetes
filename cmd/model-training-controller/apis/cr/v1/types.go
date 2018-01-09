@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const GroupName = "aipg.intel.com"
@@ -134,4 +135,14 @@ type ModelTrainingList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 	Items           []ModelTraining `json:"items"`
+}
+
+// GetItems returns the list of items to be used in the List api call for crs
+func (mtl *ModelTrainingList) GetItems() []runtime.Object {
+	var result []runtime.Object
+	for _, item := range mtl.Items {
+		mtCopy := item
+		result = append(result, &mtCopy)
+	}
+	return result
 }

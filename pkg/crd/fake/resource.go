@@ -6,6 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -52,10 +53,19 @@ func (c *CustomResourceImpl) SetStatusStateWithMessage(state states.State, messa
 	c.StatusState = state
 }
 
-// CustomResourceImplList implements crd.CustomResource for the List method
+// CustomResourceListImpl implements crd.CustomResource for the List method
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type CustomResourceImplList struct {
+type CustomResourceListImpl struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:",inline"`
 	Items           []CustomResourceImpl `json:"items"`
+}
+
+func (c *CustomResourceListImpl) GetItems() []runtime.Object {
+	var result []runtime.Object
+	for _, item := range c.Items {
+		itemCopy := item
+		result = append(result, &itemCopy)
+	}
+	return result
 }

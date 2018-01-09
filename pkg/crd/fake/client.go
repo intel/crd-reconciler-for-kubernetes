@@ -11,8 +11,9 @@ import (
 
 // ClientImpl is a fake implementation of crd.Client
 type ClientImpl struct {
-	CustomResourceImpl *CustomResourceImpl
-	Error              string
+	CustomResourceImpl     *CustomResourceImpl
+	CustomResourceListImpl *CustomResourceListImpl
+	Error                  string
 }
 
 // returns a fake RESTClient.
@@ -61,5 +62,13 @@ func (c *ClientImpl) Validate(cr crd.CustomResource) (e error) {
 	if c.Error != "" {
 		e = fmt.Errorf(c.Error)
 	}
+	return
+}
+
+func (c *ClientImpl) List(namespace string, labels map[string]string) (result runtime.Object, e error) {
+	if c.Error != "" {
+		e = fmt.Errorf(c.Error)
+	}
+	result = c.CustomResourceListImpl
 	return
 }

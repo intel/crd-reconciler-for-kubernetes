@@ -24,6 +24,7 @@ type Client interface {
 	Delete(namespace string, name string) error
 	Validate(crd CustomResource) error
 	RESTClient() rest.Interface
+	List(namespace string, labels map[string]string) (runtime.Object, error)
 }
 
 type client struct {
@@ -83,6 +84,18 @@ func (c *client) Get(namespace string, name string) (runtime.Object, error) {
 		Namespace(namespace).
 		Resource(c.handle.Plural).
 		Name(name).
+		Do().
+		Into(result)
+
+	return result, err
+}
+
+// List retrieves the list of CRs from the API server
+func (c *client) List(namespace string, labels map[string]string) (runtime.Object, error) {
+	result := c.handle.ResourceListType.DeepCopyObject()
+	err := c.restClient.Get().
+		Namespace(namespace).
+		Resource(c.handle.Plural).
 		Do().
 		Into(result)
 

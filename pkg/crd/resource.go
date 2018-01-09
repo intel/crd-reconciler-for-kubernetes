@@ -19,3 +19,9 @@ type CustomResource interface {
 	DeepCopyObject() runtime.Object
 	GetObjectKind() schema.ObjectKind
 }
+
+type CustomResourceList interface {
+	GetItems() []runtime.Object
+	DeepCopyObject() runtime.Object
+	GetObjectKind() schema.ObjectKind
+}
