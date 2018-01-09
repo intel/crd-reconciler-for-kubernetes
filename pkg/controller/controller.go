@@ -19,6 +19,22 @@ type Hooks interface {
 	Delete(obj interface{})
 }
 
+// source defines the interface for getting the source
+type source interface {
+	GetSource(controller *Controller, namespace string) *cache.ListWatch
+}
+
+// sourceImpl is the struct which should be used to get the source for watching and listing CRs
+type sourceImpl struct{}
+
+func (s *sourceImpl) GetSource(controller *Controller, namespace string) *cache.ListWatch {
+	return cache.NewListWatchFromClient(
+		controller.Client,
+		controller.CRD.Definition.Spec.Names.Plural,
+		namespace,
+		fields.Everything())
+}
+
 // handlerFuncs returns an instance of the handler functions type
 // needed to create an informer based on the supplied controller hooks.
 func handlerFuncs(h Hooks) cache.ResourceEventHandlerFuncs {
@@ -36,6 +52,7 @@ type Controller struct {
 	Hooks  Hooks
 	Client rest.Interface
 	Scheme *runtime.Scheme
+	source source
 }
 
 // New returns a new Controller.
@@ -44,6 +61,7 @@ func New(handle *crd.Handle, hooks Hooks, client rest.Interface) *Controller {
 		CRD:    handle,
 		Hooks:  hooks,
 		Client: client,
+		source: &sourceImpl{},
 	}
 }
 
@@ -51,8 +69,11 @@ func New(handle *crd.Handle, hooks Hooks, client rest.Interface) *Controller {
 func (c *Controller) Run(ctx context.Context, namespace string) error {
 	fmt.Print("Watch objects\n")
 
+	// Create source
+	source := c.source.GetSource(c, namespace)
+
 	// Watch objects
-	_, err := c.watch(ctx, namespace)
+	_, err := c.watch(ctx, namespace, source)
 	if err != nil {
 		fmt.Printf("Failed to register watch for resource: %v\n", err)
 		return err
@@ -62,12 +83,7 @@ func (c *Controller) Run(ctx context.Context, namespace string) error {
 	return ctx.Err()
 }
 
-func (c *Controller) watch(ctx context.Context, namespace string) (cache.Controller, error) {
-	source := cache.NewListWatchFromClient(
-		c.Client,
-		c.CRD.Definition.Spec.Names.Plural,
-		namespace,
-		fields.Everything())
+func (c *Controller) watch(ctx context.Context, namespace string, source *cache.ListWatch) (cache.Controller, error) {
 
 	_, cacheController := cache.NewInformer(
 		source,
