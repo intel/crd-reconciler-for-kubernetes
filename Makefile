@@ -24,7 +24,7 @@ docker:
 		-t $(IMAGE_NAME):$(VERSION) \
 		-t $(IMAGE_NAME):latest .
 
-controllers: stream-prediction model-training example
+controllers: stream-prediction model-training batch-prediction example
 
 code-generation:
 	/go/bin/deepcopy-gen --output-base=/go/src --input-dirs=github.com/NervanaSystems/kube-controllers-go/pkg/crd/fake/... --output-package=pkg/crd/fake
@@ -35,6 +35,9 @@ stream-prediction:
 
 model-training:
 	(cd cmd/model-training-controller && make)
+
+batch-prediction:
+	(cd cmd/batch-prediction-controller && make)
 
 example:
 	(cd cmd/example-controller && make)
@@ -94,6 +97,10 @@ push-images:
 		  GOOGLE_AUTH=$(GOOGLE_AUTH) \
 		  GOOGLE_PROJECT_ID=$(GOOGLE_PROJECT_ID))
 	@ (cd cmd/model-training-controller && \
+		make push-image \
+		  GOOGLE_AUTH=$(GOOGLE_AUTH) \
+		  GOOGLE_PROJECT_ID=$(GOOGLE_PROJECT_ID))
+	@ (cd cmd/batch-prediction-controller && \
 		make push-image \
 		  GOOGLE_AUTH=$(GOOGLE_AUTH) \
 		  GOOGLE_PROJECT_ID=$(GOOGLE_PROJECT_ID))

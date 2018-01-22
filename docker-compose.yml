@@ -45,6 +45,20 @@ services:
       - "kubernetes"
     privileged: true # required for debugging
 
+  batch-prediction-controller:
+    image: "batch-prediction-controller"
+    command:
+      sh -c "
+      /go/src/github.com/NervanaSystems/kube-controllers-go/resources/wait-port kubernetes 8080 &&
+      /go/bin/batch-prediction-controller
+        --kubeconfig=/go/src/github.com/NervanaSystems/kube-controllers-go/resources/config
+        --jobFile=/go/src/github.com/NervanaSystems/kube-controllers-go/cmd/batch-prediction-controller/resources/job.tmpl
+        --namespace=e2e-test
+        --v=4"
+    depends_on:
+      - "kubernetes"
+    privileged: true # required for debugging
+
   example-controller:
     image: "example-controller"
     depends_on:
