@@ -16,13 +16,5 @@ Considering the idempotence of the actions we take against any shared resource a
 
 One of the reasons for writing idempotent controllers comes from the manner in which events are delivered.  The API Server uses SSE as an event delivery mechanism, which can only work by delivering events to all subscribers of some source.  In order to mitigate this in an idempotent manner, we can do two things, each of which hinges on a guarantee from the API Server that it is sequentially consistent<sup>[2]</sup>.
 
-__1. Take responsibility for and have some deterministic manner in which to generate identifiers.__
-
-When a new resource is created, take something from the Nervana Cloud domain like `stream_id` and couple it with a fixed descriptor like `krypton-sp13` rather than randomly generating identifiers.  This results in any instance of a controller generating the same name for a resource.
-
-__2. Gracefully handle an "already exists" error.__
-
-Coupled with number 1, if two controllers attempted to create the resource `krypton-sp13` only one would succeed and the API Server would reply to the second with an error that `krypton-sp13` already exists.  The controller should inspect the returned error from a creation request and treat "already exists" as a special case, one that can generally be dismissed.  Don't forget logging here either!  The right choice is `INFO` or at most `WARN`; be wary of using `ERROR` in this case as it can be misleading. The goal of the logging should be to report the possible competition of a set of controller instances, not that the resource already exists.
-
 1. https://en.wikipedia.org/wiki/Idempotence
 2. https://en.wikipedia.org/wiki/Sequential_consistency

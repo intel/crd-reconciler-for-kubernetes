@@ -50,41 +50,6 @@ jobs:
             set -x
             # Must set GOOGLE_PROJECT_ID and GOOGLE_AUTH in environment.
             make -e push-images
-
-      - run:
-          name: Run make test-e2e
-          command: |
-            set -x
-            make test-e2e
-  integration_trigger:
-    docker:
-      - image: nervana/circleci:master
-    working_directory: ~/repo
-    steps:
-      - checkout
-      - run:
-          name: neverna-helm integration test
-          command: |
-            CUSTOM_VALUES=$(cat << EOF
-            {
-              "stream_prediction_controller": {
-                "registry": "gcr.io/",
-                "org": "constant-cubist-173123",
-                "repo": "stream-prediction-controller",
-                "tag": "$(git describe --tags --always --dirty)"
-              },
-              "model_training_controller": {
-                "registry": "gcr.io/",
-                "org": "constant-cubist-173123",
-                "repo": "model-training-controller",
-                "tag": "$(git describe --tags --always --dirty)"
-              }
-            }
-            EOF
-            )
-
-            integration NervanaSystems/nervana-helm kubernetes-experimental \
-              -K CUSTOM_VALUES -V "${CUSTOM_VALUES}"
 workflows:
   version: 2
   test:
@@ -93,6 +58,3 @@ workflows:
           filters:
             tags:
               only: /.*/
-      - integration_trigger:
-          requires:
-            - build

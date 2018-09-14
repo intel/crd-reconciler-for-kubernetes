@@ -2,8 +2,6 @@
 
 [![CircleCI](https://circleci.com/gh/NervanaSystems/kube-controllers-go.svg?style=svg&circle-token=9c029b14f7156dec846307b9f58c2f72ad80484e)](https://circleci.com/gh/NervanaSystems/kube-controllers-go)
 
-- Custom resource definitions (CRDs) for Nervana Cloud.
-
 - Controllers to interpret CRDs to Kubernetes-native constructs and
   report health of those sub-resources.
 
@@ -62,14 +60,12 @@ There are two intermediate container images:
   environment using `docker-compose`. List service status using e.g.
   `docker-compose ps`.
 
-- **`make dev TARGET=[test|stream-prediction-controller|example-controller...]`**: Drop into bash inside the source repo container in the
+- **`make dev TARGET=[test|example-controller...]`**: Drop into bash inside the source repo container in the
   integration environment. Run after `make env-up`. TARGET defaults to 'test' and can also be set in your SHELL profile
 
 - **`make test-e2e`**: Run the end-to-end integration tests.
 
-- **`make debug TARGET=[test|stream-prediction-controller|example-controller...]`**: Attach to the process running in the TARGET container. See [tutorial](docs/debug.md). TARGET defaults to 'test' and can also be set in your SHELL profile
-
-- **`make create-sp`**: this will create a stream prediction instance with a unique name
+- **`make debug TARGET=[test|example-controller...]`**: Attach to the process running in the TARGET container. See [tutorial](docs/debug.md). TARGET defaults to 'test' and can also be set in your SHELL profile
 
 ## Dependency management
 

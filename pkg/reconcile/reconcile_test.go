@@ -64,21 +64,21 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 		"no subresources under this CR": {
 			namespace: "namespace1",
 			gvk: schema.GroupVersionKind{
-				Group:   "aipg.intel.com",
+				Group:   "kubernetes.intel.com",
 				Version: "v1",
-				Kind:    "InteractiveSession",
+				Kind:    "CRDKind3",
 			},
 			resourceClients: []resource.Client{
 				&rf.SubresourceClient{
 					Error:       "no subresources",
-					PluralValue: "interactivesessions",
+					PluralValue: "crdkind3s",
 				},
 			},
 			crList: fake.CustomResourceListImpl{
 				Items: []fake.CustomResourceImpl{
 					{
 						typeMeta,
-						metav1.ObjectMeta{Name: "interactive1"},
+						metav1.ObjectMeta{Name: "crdkind31"},
 						states.Running,
 						states.Running,
 					},
@@ -88,9 +88,9 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 		"no controller for a subresource": {
 			namespace: "namespace2",
 			gvk: schema.GroupVersionKind{
-				Group:   "aipg.intel.com",
+				Group:   "kubernetes.intel.com",
 				Version: "v1",
-				Kind:    "StreamPrediction",
+				Kind:    "CRDKind1",
 			},
 			resourceClients: []resource.Client{
 				&rf.SubresourceClient{
@@ -111,7 +111,7 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 				Items: []fake.CustomResourceImpl{
 					{
 						typeMeta,
-						metav1.ObjectMeta{Name: "stream1"},
+						metav1.ObjectMeta{Name: "crdkind11"},
 						states.Running,
 						states.Running,
 					},
@@ -121,9 +121,9 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 		"wrong controller for a subresource": {
 			namespace: "namespace3",
 			gvk: schema.GroupVersionKind{
-				Group:   "aipg.intel.com",
+				Group:   "kubernetes.intel.com",
 				Version: "v1",
-				Kind:    "ModelTraining",
+				Kind:    "CRDKind2",
 			},
 			resourceClients: []resource.Client{
 				&rf.SubresourceClient{
@@ -133,9 +133,9 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 							Namespace: "namespace3",
 							OwnerReferences: []metav1.OwnerReference{
 								{
-									APIVersion: "aipg.intel.com/v1",
-									Kind:       "StreamPrediction",
-									Name:       "stream1",
+									APIVersion: "kubernetes.intel.com/v1",
+									Kind:       "CRDKind1",
+									Name:       "crdkind11",
 									UID:        "8888",
 									Controller: &controllerRef,
 								}},
@@ -152,7 +152,7 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 				Items: []fake.CustomResourceImpl{
 					{
 						typeMeta,
-						metav1.ObjectMeta{Name: "stream1"},
+						metav1.ObjectMeta{Name: "crdkind11"},
 						states.Running,
 						states.Running,
 					},
@@ -162,9 +162,9 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 		"valid controller ref, but not a valid runtime.Object": {
 			namespace: "namespace4",
 			gvk: schema.GroupVersionKind{
-				Group:   "aipg.intel.com",
+				Group:   "kubernetes.intel.com",
 				Version: "v1",
-				Kind:    "StreamPrediction",
+				Kind:    "CRDKind1",
 			},
 			resourceClients: []resource.Client{
 				&rf.SubresourceClient{
@@ -173,9 +173,9 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 						Namespace: "namespace4",
 						OwnerReferences: []metav1.OwnerReference{
 							{
-								APIVersion: "aipg.intel.com/v1",
-								Kind:       "StreamPrediction",
-								Name:       "stream1",
+								APIVersion: "kubernetes.intel.com/v1",
+								Kind:       "CRDKind1",
+								Name:       "crdkind11",
 								UID:        "8888",
 								Controller: &controllerRef,
 							}},
@@ -186,7 +186,7 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 				Items: []fake.CustomResourceImpl{
 					{
 						typeMeta,
-						metav1.ObjectMeta{Name: "stream1"},
+						metav1.ObjectMeta{Name: "crdkind11"},
 						states.Running,
 						states.Running,
 					},
@@ -196,9 +196,9 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 		"valid controller ref": {
 			namespace: "namespace5",
 			gvk: schema.GroupVersionKind{
-				Group:   "aipg.intel.com",
+				Group:   "kubernetes.intel.com",
 				Version: "v1",
-				Kind:    "StreamPrediction",
+				Kind:    "CRDKind1",
 			},
 			resourceClients: []resource.Client{
 				&rf.SubresourceClient{
@@ -212,9 +212,9 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 							Namespace: "namespace5",
 							OwnerReferences: []metav1.OwnerReference{
 								{
-									APIVersion:         "aipg.intel.com/v1",
-									Kind:               "StreamPrediction",
-									Name:               "stream2",
+									APIVersion:         "kubernetes.intel.com/v1",
+									Kind:               "CRDKind1",
+									Name:               "crdkind12",
 									UID:                "3982",
 									Controller:         &controllerRef,
 									BlockOwnerDeletion: nil,
@@ -232,7 +232,7 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 				Items: []fake.CustomResourceImpl{
 					{
 						typeMeta,
-						metav1.ObjectMeta{Name: "stream2"},
+						metav1.ObjectMeta{Name: "crdkind12"},
 						states.Running,
 						states.Running,
 					},
