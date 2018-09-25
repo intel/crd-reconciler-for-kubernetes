@@ -35,7 +35,7 @@ endif
 	# Running this locally may override your CLI settings.
 	# TODO(CD): Stash the active auth and project and restore them
 	# after pushing.
-	echo "$(GOOGLE_AUTH)" | base64 --decode > /tmp/gcp-key.json
+	@echo "$(GOOGLE_AUTH)" | base64 --decode > /tmp/gcp-key.json
 	gcloud auth activate-service-account --key-file /tmp/gcp-key.json
 	gcloud config set project "$(GOOGLE_PROJECT_ID)"
 
