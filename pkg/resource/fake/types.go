@@ -54,6 +54,14 @@ func (c *SubresourceClient) Delete(namespace, name string) (e error) {
 	return
 }
 
+// Update updates a fake resource.Client
+func (c *SubresourceClient) Update(namespace string, name string, data []byte) (e error) {
+	if c.Error != "" {
+		e = fmt.Errorf(c.Error)
+	}
+	return
+}
+
 // Get returns a fake runtime.Object
 func (c *SubresourceClient) Get(namespace, name string) (result runtime.Object, e error) {
 	if c.Error != "" {

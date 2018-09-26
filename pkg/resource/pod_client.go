@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apilabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -74,6 +75,19 @@ func (c *podClient) Delete(namespace, name string) error {
 		Name(name)
 
 	glog.Infof("[DEBUG] delete resource URL: %s", request.URL())
+
+	return request.Do().Error()
+}
+
+func (c *podClient) Update(namespace string, name string, data []byte) error {
+
+	request := c.restClient.Patch(types.JSONPatchType).
+		Resource(c.resourcePluralForm).
+		Namespace(namespace).
+		Name(name).
+		Body(data)
+
+	glog.Infof("[DEBUG] update resource URL: %s", request.URL())
 
 	return request.Do().Error()
 }
