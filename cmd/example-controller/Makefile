@@ -22,7 +22,7 @@ test: lint
 	go test --cover ./apis/cr/v1
 
 code-generation:
-	/go/bin/deepcopy-gen --output-base=/go/src --input-dirs=github.com/NervanaSystems/kube-controllers-go/cmd/example-controller/apis/cr/v1/...
+	/go/bin/deepcopy-gen --output-base=/go/src --input-dirs=github.com/intel/crd-reconciler-for-kubernetes/cmd/example-controller/apis/cr/v1/...
 
 push-image-preflight:
 ifeq ($(GOOGLE_PROJECT_ID),)

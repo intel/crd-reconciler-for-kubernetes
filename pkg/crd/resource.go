@@ -4,7 +4,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
+	"github.com/intel/crd-reconciler-for-kubernetes/pkg/states"
 )
 
 // CustomResource is the base type of custom resource objects.

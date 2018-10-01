@@ -20,15 +20,15 @@ services:
       - "kubernetes"
     command:
       sh -c "
-      /go/src/github.com/NervanaSystems/kube-controllers-go/resources/wait-port kubernetes 8080 &&
+      /go/src/github.com/intel/crd-reconciler-for-kubernetes/resources/wait-port kubernetes 8080 &&
       /go/bin/example-controller
-        --kubeconfig=/go/src/github.com/NervanaSystems/kube-controllers-go/resources/config"
+        --kubeconfig=/go/src/github.com/intel/crd-reconciler-for-kubernetes/resources/config"
     privileged: true # required for debugging
 
   test:
-    image: "kube-controllers-go"
+    image: "crd-reconciler-for-kubernetes"
     depends_on:
       - "kubernetes"
     environment:
-      - KUBECONFIG=/go/src/github.com/NervanaSystems/kube-controllers-go/resources/config
+      - KUBECONFIG=/go/src/github.com/intel/crd-reconciler-for-kubernetes/resources/config
     command: "sleep inf"

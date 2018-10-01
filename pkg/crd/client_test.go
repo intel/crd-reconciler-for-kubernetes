@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
+	"github.com/intel/crd-reconciler-for-kubernetes/pkg/states"
 	"github.com/stretchr/testify/require"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
@@ -48,7 +48,7 @@ var (
 		"testCRD",
 		"testCRDs",
 		extv1beta1.NamespaceScoped,
-		"file:///go/src/github.com/NervanaSystems/kube-controllers-go/resources/test_schemas/testCRD.json")
+		"file:///go/src/github.com/intel/crd-reconciler-for-kubernetes/resources/test_schemas/testCRD.json")
 )
 
 // Test CRD, which has nothing but apiversion, kind and metadata.

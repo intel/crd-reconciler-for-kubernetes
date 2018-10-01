@@ -8,10 +8,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"fmt"
-	"github.com/NervanaSystems/kube-controllers-go/pkg/crd/fake"
-	"github.com/NervanaSystems/kube-controllers-go/pkg/resource"
-	rf "github.com/NervanaSystems/kube-controllers-go/pkg/resource/fake"
-	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
+	"github.com/intel/crd-reconciler-for-kubernetes/pkg/crd/fake"
+	"github.com/intel/crd-reconciler-for-kubernetes/pkg/resource"
+	rf "github.com/intel/crd-reconciler-for-kubernetes/pkg/resource/fake"
+	"github.com/intel/crd-reconciler-for-kubernetes/pkg/states"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime"
 )

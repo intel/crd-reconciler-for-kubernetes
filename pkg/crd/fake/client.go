@@ -6,7 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 
-	"github.com/NervanaSystems/kube-controllers-go/pkg/crd"
+	"github.com/intel/crd-reconciler-for-kubernetes/pkg/crd"
 )
 
 // ClientImpl is a fake implementation of crd.Client

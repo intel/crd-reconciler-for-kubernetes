@@ -13,9 +13,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/NervanaSystems/kube-controllers-go/pkg/crd"
-	"github.com/NervanaSystems/kube-controllers-go/pkg/resource"
-	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
+	"github.com/intel/crd-reconciler-for-kubernetes/pkg/crd"
+	"github.com/intel/crd-reconciler-for-kubernetes/pkg/resource"
+	"github.com/intel/crd-reconciler-for-kubernetes/pkg/states"
 	"github.com/golang/glog"
 )
 

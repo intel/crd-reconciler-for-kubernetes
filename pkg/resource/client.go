@@ -4,7 +4,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
+	"github.com/intel/crd-reconciler-for-kubernetes/pkg/states"
 )
 
 // Client manipulates Kubernetes API resources backed by template files.

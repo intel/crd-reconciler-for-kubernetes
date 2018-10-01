@@ -1,8 +1,8 @@
-# kube-controllers-go
+# CRD Reconciler For Kubernetes
 
-[![CircleCI](https://circleci.com/gh/NervanaSystems/kube-controllers-go.svg?style=svg&circle-token=9c029b14f7156dec846307b9f58c2f72ad80484e)](https://circleci.com/gh/NervanaSystems/kube-controllers-go)
+<!-- [![CircleCI](https://circleci.com/gh/NervanaSystems/crd-reconciler-for-kubernetes.svg?style=svg&circle-token=9c029b14f7156dec846307b9f58c2f72ad80484e)](https://circleci.com/gh/NervanaSystems/crd-reconciler-for-kubernetes) -->
 
-- Controllers to interpret CRDs to Kubernetes-native constructs and
+- Yet another library for writing controllers to interpret CRDs to Kubernetes-native constructs and
   report health of those sub-resources.
 
 - Library and docs for writing controllers that reconcile against CRDs.
@@ -36,16 +36,16 @@ deployed in the local integration environment or a target cluster.
 
 There are two intermediate container images:
 
-- `kube-controllers-go-dep` -- contains only source dependencies, separate
+- `crd-reconciler-for-kubernetes-dep` -- contains only source dependencies, separate
   to speed up local dev iterations
 
-- `kube-controllers-go` -- base image for all controller images, built on
-  top of kube-controllers-go-dep.
+- `crd-reconciler-for-kubernetes` -- base image for all controller images, built on
+  top of crd-reconciler-for-kubernetes-dep.
 
 ### Most useful Make targets
 
 - **`make dep`**: Build a docker image containing only source dependencies
-  and tag it as `kube-controllers-go-dep:$(version)`. This step is a
+  and tag it as `crd-reconciler-for-kubernetes-dep:$(version)`. This step is a
   prerequisite to run the other targets, and must be run explicitly.
 
 - **`make docker`**: Build a docker image containing the source repo, running
@@ -77,6 +77,6 @@ Cheatsheet:
 
 After running `dep ensure --add` or manually editing `Gopkg.toml`,
 you must manually re-run `make dep` to update your local
-`kube-controllers-go-dep` image. Otherwise, the other make targets will
+`crd-reconciler-for-kubernetes-dep` image. Otherwise, the other make targets will
 be based off of an outdated set of source dependencies.
 
