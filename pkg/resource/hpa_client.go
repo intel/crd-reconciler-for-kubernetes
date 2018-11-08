@@ -31,8 +31,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
-	"github.com/NervanaSystems/kube-controllers-go/pkg/resource/reify"
-	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
+	"github.com/intel/crd-reconciler-for-kubernetes/pkg/resource/reify"
+	"github.com/intel/crd-reconciler-for-kubernetes/pkg/states"
 )
 
 type hpaClient struct {

@@ -20,7 +20,7 @@ package controller
 
 import (
 	"context"
-	"github.com/NervanaSystems/kube-controllers-go/pkg/crd"
+	"github.com/intel/crd-reconciler-for-kubernetes/pkg/crd"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

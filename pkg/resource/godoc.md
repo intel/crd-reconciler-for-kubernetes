@@ -1,6 +1,6 @@
 # resource
 --
-    import "github.com/NervanaSystems/kube-controllers-go/pkg/resource"
+    import "github.com/intel/crd-reconciler-for-kubernetes/pkg/resource"
 
 
 ## Usage

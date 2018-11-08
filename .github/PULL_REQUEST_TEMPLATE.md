@@ -7,4 +7,4 @@ Summary of changes:
 Testing done:
 - 
 
-@NervanaSystems/accelerator-enablement
+@intel/accelerator-enablement

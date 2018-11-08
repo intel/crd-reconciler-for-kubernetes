@@ -22,7 +22,7 @@ VERSION := $(shell git describe --tags --always --dirty)
 
 GOOGLE_PROJECT_ID=
 GOOGLE_AUTH=
-IMAGE_NAME=kube-controllers-go
+IMAGE_NAME=crd-reconciler-for-kubernetes
 TARGET ?= test
 DEBUG_TARGET ?= example-controller
 GODEBUGGER ?= gdb
@@ -46,8 +46,8 @@ docker:
 controllers: example
 
 code-generation:
-	/go/bin/deepcopy-gen --output-base=/go/src --input-dirs=github.com/NervanaSystems/kube-controllers-go/pkg/crd/fake/... --output-package=pkg/crd/fake
-	/go/bin/deepcopy-gen --output-base=/go/src --input-dirs=github.com/NervanaSystems/kube-controllers-go/pkg/resource/fake/... --output-package=pkg/resource/fake
+	/go/bin/deepcopy-gen --output-base=/go/src --input-dirs=github.com/intel/crd-reconciler-for-kubernetes/pkg/crd/fake/... --output-package=pkg/crd/fake
+	/go/bin/deepcopy-gen --output-base=/go/src --input-dirs=github.com/intel/crd-reconciler-for-kubernetes/pkg/resource/fake/... --output-package=pkg/resource/fake
 
 example:
 	(cd cmd/example-controller && make)
@@ -66,7 +66,7 @@ dev:
 	docker-compose exec --privileged $(TARGET) /bin/bash
 
 debug:
-	docker-compose exec --privileged $(DEBUG_TARGET) env GODEBUGGER=$(GODEBUGGER) /go/src/github.com/NervanaSystems/kube-controllers-go/scripts/godebug attach $(DEBUG_TARGET)
+	docker-compose exec --privileged $(DEBUG_TARGET) env GODEBUGGER=$(GODEBUGGER) /go/src/github.com/intel/crd-reconciler-for-kubernetes/scripts/godebug attach $(DEBUG_TARGET)
 
 install-linter:
 	go get github.com/alecthomas/gometalinter
