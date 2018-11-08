@@ -21,9 +21,9 @@ package main
 import (
 	"fmt"
 
-	crv1 "github.com/NervanaSystems/kube-controllers-go/cmd/example-controller/apis/cr/v1"
-	"github.com/NervanaSystems/kube-controllers-go/pkg/crd"
-	"github.com/NervanaSystems/kube-controllers-go/pkg/states"
+	crv1 "github.com/intel/crd-reconciler-for-kubernetes/cmd/example-controller/apis/cr/v1"
+	"github.com/intel/crd-reconciler-for-kubernetes/pkg/crd"
+	"github.com/intel/crd-reconciler-for-kubernetes/pkg/states"
 )
 
 // exampleHooks implements controller.Hooks.

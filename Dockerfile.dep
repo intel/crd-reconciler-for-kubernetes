@@ -6,9 +6,9 @@ RUN go get -u github.com/golang/dep/cmd/dep
 # debugging
 RUN go get -u github.com/derekparker/delve/cmd/dlv
 ENV GODEBUGGER=gdb
-RUN mkdir -p /go/src/github.com/NervanaSystems
-ADD . /go/src/github.com/NervanaSystems/kube-controllers-go
-WORKDIR /go/src/github.com/NervanaSystems/kube-controllers-go
+RUN mkdir -p /go/src/github.com/intel
+ADD . /go/src/github.com/intel/crd-reconciler-for-kubernetes
+WORKDIR /go/src/github.com/intel/crd-reconciler-for-kubernetes
 RUN make install-linter
 RUN rm -rf vendor
 # in order to build each of the controllers, the vendored deps need to be on

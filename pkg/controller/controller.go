@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/NervanaSystems/kube-controllers-go/pkg/crd"
+	"github.com/intel/crd-reconciler-for-kubernetes/pkg/crd"
 )
 
 // Hooks is the callback interface that defines controller behavior.

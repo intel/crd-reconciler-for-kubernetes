@@ -25,17 +25,17 @@ you can run `make` successfully before making changes.
 1. Edit `/cmd/foo-controller/Dockerfile` to update the source code path.
 
 1. Edit `/cmd/foo-controller/Makefile` to update the Docker tag to
-   `foo-controller:$(version)` and update the code generation path to `github.com/NervanaSystems/kube-controllers-go/cmd/foo-controller/apis/cr/v1`
+   `foo-controller:$(version)` and update the code generation path to `github.com/intel/crd-reconciler-for-kubernetes/cmd/foo-controller/apis/cr/v1`
 
 1. Edit `/cmd/foo-controller/main.go`:
-    1. Edit the `crv1` import to `crv1 "github.com/NervanaSystems/kube-controllers-go/cmd/foo-controller/apis/cr/v1"`
+    1. Edit the `crv1` import to `crv1 "github.com/intel/crd-reconciler-for-kubernetes/cmd/foo-controller/apis/cr/v1"`
     1. Change all instances of `crv1.Example` and `crv1.ExampleList` to
        `crv1.Foo` and `crv1.FooList`.
     1. Change the type of the hooks implementation from `exampleHooks`
        to `fooHooks`.
 
 1. Edit `/cmd/foo-controller/hooks.go`:
-    1. Edit the `crv1` import to `crv1 "github.com/NervanaSystems/kube-controllers-go/cmd/foo-controller/apis/cr/v1"`
+    1. Edit the `crv1` import to `crv1 "github.com/intel/crd-reconciler-for-kubernetes/cmd/foo-controller/apis/cr/v1"`
     1. Change `type exampleHooks struct {` to `type fooHooks struct {`.
     1. Change all instances of `crv1.Example` and `crv1.ExampleList` to
        `crv1.Foo` and `crv1.FooList`.

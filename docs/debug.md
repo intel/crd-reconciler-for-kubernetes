@@ -19,6 +19,6 @@ Type 'help' for list of commands.
 - you should break in the debugger once a new example custom resource is created.
 ```
 Breakpoint 1, main.(*exampleHooks).Add (c=0xc420113510, obj=...)
-    at /go/src/github.com/NervanaSystems/kube-controllers-go/cmd/example-controller/hooks.go:17
+    at /go/src/github.com/intel/crd-reconciler-for-kubernetes/cmd/example-controller/hooks.go:17
 17              example := obj.(*crv1.Example)
 ```
