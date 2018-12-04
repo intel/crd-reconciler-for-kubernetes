@@ -35,7 +35,9 @@ type Client interface {
 	// Delete deletes the object.
 	Delete(namespace string, name string) error
 	// Update updates the object.
-	Update(namespace string, name string, data []byte) error
+	Update(namespace string, name string, templateValues interface{}) error
+	// Patch updates the object using JSON patch.
+	Patch(namespace string, name string, data []byte) error
 	// Get retrieves the object.
 	Get(namespace, name string) (runtime.Object, error)
 	// List lists objects based on group, version and kind.

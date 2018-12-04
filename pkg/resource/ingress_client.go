@@ -96,7 +96,33 @@ func (c *ingressClient) Delete(namespace, name string) error {
 	return request.Do().Error()
 }
 
-func (c *ingressClient) Update(namespace string, name string, data []byte) error {
+func (c *ingressClient) Update(namespace string, name string, templateValues interface{}) error {
+	resourceBody, err := c.Reify(templateValues)
+	if err != nil {
+		return err
+	}
+
+	request := c.restClient.Put().
+		Namespace(namespace).
+		Resource(c.resourcePluralForm).
+		Name(name).
+		Body(resourceBody)
+
+	glog.Infof("[DEBUG] update resource URL: %s", request.URL())
+
+	var statusCode int
+	err = request.Do().StatusCode(&statusCode).Error()
+
+	if err != nil {
+		return err
+	}
+	if statusCode != http.StatusOK && statusCode != http.StatusCreated {
+		return fmt.Errorf("unexpected status code (%d)", statusCode)
+	}
+	return nil
+}
+
+func (c *ingressClient) Patch(namespace string, name string, data []byte) error {
 
 	request := c.restClient.Patch(types.JSONPatchType).
 		Resource(c.resourcePluralForm).
@@ -104,7 +130,7 @@ func (c *ingressClient) Update(namespace string, name string, data []byte) error
 		Name(name).
 		Body(data)
 
-	glog.Infof("[DEBUG] update resource URL: %s", request.URL())
+	glog.Infof("[DEBUG] patch resource URL: %s", request.URL())
 
 	return request.Do().Error()
 }

@@ -73,7 +73,15 @@ func (c *SubresourceClient) Delete(namespace, name string) (e error) {
 }
 
 // Update updates a fake resource.Client
-func (c *SubresourceClient) Update(namespace string, name string, data []byte) (e error) {
+func (c *SubresourceClient) Update(namespace string, templateValues interface{}) (e error) {
+	if c.Error != "" {
+		e = fmt.Errorf(c.Error)
+	}
+	return
+}
+
+// Patch patches a fake resource.Client
+func (c *SubresourceClient) Patch(namespace string, name string, data []byte) (e error) {
 	if c.Error != "" {
 		e = fmt.Errorf(c.Error)
 	}

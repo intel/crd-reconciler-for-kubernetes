@@ -23,8 +23,9 @@ import (
 	"net/http"
 
 	"github.com/golang/glog"
-	"k8s.io/api/extensions/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apilabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -35,26 +36,24 @@ import (
 	"github.com/intel/crd-reconciler-for-kubernetes/pkg/states"
 )
 
-type deploymentClient struct {
+type configMapClient struct {
 	globalTemplateValues GlobalTemplateValues
-	k8sClientset         *kubernetes.Clientset
 	restClient           rest.Interface
 	resourcePluralForm   string
 	templateFileName     string
 }
 
-// NewDeploymentClient returns a new generic resource client.
-func NewDeploymentClient(globalTemplateValues GlobalTemplateValues, clientSet *kubernetes.Clientset, templateFileName string) Client {
-	return &deploymentClient{
+// configMapClient returns a new pod client.
+func NewConfigMapClient(globalTemplateValues GlobalTemplateValues, clientSet *kubernetes.Clientset, templateFileName string) Client {
+	return &configMapClient{
 		globalTemplateValues: globalTemplateValues,
-		k8sClientset:         clientSet,
-		restClient:           clientSet.ExtensionsV1beta1().RESTClient(),
-		resourcePluralForm:   "deployments",
+		restClient:           clientSet.CoreV1().RESTClient(),
+		resourcePluralForm:   "configmaps",
 		templateFileName:     templateFileName,
 	}
 }
 
-func (c *deploymentClient) Reify(templateValues interface{}) ([]byte, error) {
+func (c *configMapClient) Reify(templateValues interface{}) ([]byte, error) {
 	result, err := reify.Reify(c.templateFileName, templateValues, c.globalTemplateValues)
 	if err != nil {
 		return nil, err
@@ -62,7 +61,7 @@ func (c *deploymentClient) Reify(templateValues interface{}) ([]byte, error) {
 	return result, nil
 }
 
-func (c *deploymentClient) Create(namespace string, templateValues interface{}) error {
+func (c *configMapClient) Create(namespace string, templateValues interface{}) error {
 	resourceBody, err := c.Reify(templateValues)
 	if err != nil {
 		return err
@@ -87,26 +86,18 @@ func (c *deploymentClient) Create(namespace string, templateValues interface{}) 
 	return nil
 }
 
-func (c *deploymentClient) Delete(namespace, name string) error {
-	// For deployments the propagation policy in delete options must be set
-	// to Foreground to delete the pods along with the replica sets.
-	// See https://kubernetes.io/docs/concepts/workloads/controllers/garbage-collection/#additional-note-on-deployments.
-	deletePolicy := metav1.DeletePropagationForeground
-
+func (c *configMapClient) Delete(namespace, name string) error {
 	request := c.restClient.Delete().
 		Namespace(namespace).
 		Resource(c.resourcePluralForm).
-		Name(name).
-		Body(&metav1.DeleteOptions{
-			PropagationPolicy: &deletePolicy,
-		})
+		Name(name)
 
 	glog.Infof("[DEBUG] delete resource URL: %s", request.URL())
 
 	return request.Do().Error()
 }
 
-func (c *deploymentClient) Update(namespace string, name string, templateValues interface{}) error {
+func (c *configMapClient) Update(namespace string, name string, templateValues interface{}) error {
 	resourceBody, err := c.Reify(templateValues)
 	if err != nil {
 		return err
@@ -131,7 +122,8 @@ func (c *deploymentClient) Update(namespace string, name string, templateValues 
 	}
 	return nil
 }
-func (c *deploymentClient) Patch(namespace string, name string, data []byte) error {
+
+func (c *configMapClient) Patch(namespace string, name string, data []byte) error {
 
 	request := c.restClient.Patch(types.JSONPatchType).
 		Resource(c.resourcePluralForm).
@@ -144,8 +136,8 @@ func (c *deploymentClient) Patch(namespace string, name string, data []byte) err
 	return request.Do().Error()
 }
 
-func (c *deploymentClient) Get(namespace, name string) (result runtime.Object, err error) {
-	result = &v1beta1.Deployment{}
+func (c *configMapClient) Get(namespace, name string) (result runtime.Object, err error) {
+	result = &corev1.Pod{}
 	opts := metav1.GetOptions{}
 	err = c.restClient.Get().
 		Namespace(namespace).
@@ -158,9 +150,15 @@ func (c *deploymentClient) Get(namespace, name string) (result runtime.Object, e
 	return result, err
 }
 
-func (c *deploymentClient) List(namespace string, labels map[string]string) (result []metav1.Object, err error) {
-	list := &v1beta1.DeploymentList{}
+func (c *configMapClient) List(namespace string, labels map[string]string) (result []metav1.Object, err error) {
+	list := &corev1.PodList{}
+
 	opts := metav1.ListOptions{}
+	if len(labels) > 0 {
+		selector := apilabels.SelectorFromSet(apilabels.Set(labels))
+		opts = metav1.ListOptions{LabelSelector: selector.String()}
+	}
+
 	err = c.restClient.Get().
 		Namespace(namespace).
 		Resource(c.resourcePluralForm).
@@ -169,88 +167,60 @@ func (c *deploymentClient) List(namespace string, labels map[string]string) (res
 		Into(list)
 
 	if err != nil {
-		return result, err
+		return []metav1.Object{}, err
 	}
 
 	for _, item := range list.Items {
 		// We need a copy of the item here because item has function scope whereas the copy below has a local scope.
 		// Ex: When we iterate through items, the result list will only contain multiple copies of the last item in the list.
-		depCopy := item
-		result = append(result, &depCopy)
+		podCopy := item
+		result = append(result, &podCopy)
 	}
 
 	return
 }
 
-func (c *deploymentClient) IsEphemeral() bool {
-	return false
+func (c *configMapClient) IsEphemeral() bool {
+	return true
 }
 
-func (c *deploymentClient) Plural() string {
+func (c *configMapClient) Plural() string {
 	return c.resourcePluralForm
 }
 
-func (c *deploymentClient) IsFailed(namespace string, name string) bool {
-	obj, err := c.Get(namespace, name)
+func (c *configMapClient) IsFailed(namespace string, name string) bool {
+	p, err := c.Get(namespace, name)
 	if err != nil {
 		return false
 	}
-	return c.isFailed(obj)
+	return c.isFailed(p)
 }
 
-func (c *deploymentClient) isFailed(obj runtime.Object) bool {
-	dep, ok := obj.(*v1beta1.Deployment)
+func (c *configMapClient) isFailed(obj runtime.Object) bool {
+	pod, ok := obj.(*corev1.Pod)
 	if !ok {
-		panic("object was not a *v1beta1.Deployment")
+		panic("object was not a *corev1.Pod")
 	}
-	conditions := dep.Status.Conditions
-	if len(conditions) == 0 {
-		return false
-	}
-	latestCondition := conditions[0]
-	for i := range conditions {
-		time1 := &latestCondition.LastUpdateTime
-		time2 := &conditions[i].LastUpdateTime
-		if time1.Before(time2) {
-			latestCondition = conditions[i]
-		}
-	}
-
-	if latestCondition.Type == v1beta1.DeploymentReplicaFailure {
+	if pod.Status.Phase == corev1.PodFailed {
 		return true
 	}
-
-	// If the deployment is not in a failed state we inspect whether the
-	// containers controlled by the deployment are healthy.
-	// This is required because the definition of pod failure in kubernetes is
-	// strict. The pod is considered failed iff all containers in the pod have
-	// terminated, and at least one container has terminated in a failure (exited
-	// with a non-zero exit code or was stopped by the system). If the pod gets to
-	// a failed state the controlling object (e.g., deployment),
-	// enters a failed state (i.e., DeploymentReplicaFailure state in case of
-	// deployment) as well.
-	podClient := NewPodClient(GlobalTemplateValues{}, c.k8sClientset, "")
-
-	// List all the pods with the same labels as the deployment and check if
-	// they have failed.
-	podList, err := podClient.List(dep.ObjectMeta.Namespace, dep.ObjectMeta.Labels)
-	if err != nil {
-		return false
-	}
-
-	for _, pod := range podList {
-		if podClient.IsFailed(pod.GetNamespace(), pod.GetName()) {
+	for _, status := range pod.Status.ContainerStatuses {
+		if !status.Ready && status.RestartCount > 0 {
+			return true
+		}
+		// Indicates that a container in the pod was terminated with a non-zero exit code
+		if !status.Ready && status.State.Terminated != nil && status.State.Terminated.ExitCode > 0 {
 			return true
 		}
 	}
-
 	return false
 }
 
-func (c *deploymentClient) GetStatusState(obj runtime.Object) states.State {
+func (c *configMapClient) GetStatusState(obj runtime.Object) states.State {
 	if c.isFailed(obj) {
 		return states.Failed
 	}
-	// TODO(CD): Detect Pending state. Completed doesn't make sense for this type.
+
+	// TODO(CD): Detect Pending, Completed and Failed states.
 	return states.Running
 }
