@@ -73,7 +73,7 @@ func (c *SubresourceClient) Delete(namespace, name string) (e error) {
 }
 
 // Update updates a fake resource.Client
-func (c *SubresourceClient) Update(namespace string, templateValues interface{}) (e error) {
+func (c *SubresourceClient) Update(namespace string, name string, templateValues interface{}) (e error) {
 	if c.Error != "" {
 		e = fmt.Errorf(c.Error)
 	}

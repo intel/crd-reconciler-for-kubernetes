@@ -72,7 +72,7 @@ func compareSubresourceMaps(expected subresourceMap, actual subresourceMap) func
 
 func TestGroupSubresourcesByCustomResource(t *testing.T) {
 	controllerRef := true
-	typeMeta := metav1.TypeMeta{"example", "example"}
+	typeMeta := metav1.TypeMeta{Kind: "example", APIVersion: "example"}
 	tests := map[string]struct {
 		namespace       string
 		gvk             schema.GroupVersionKind
@@ -95,10 +95,10 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 			crList: fake.CustomResourceListImpl{
 				Items: []fake.CustomResourceImpl{
 					{
-						typeMeta,
-						metav1.ObjectMeta{Name: "crdkind31"},
-						states.Running,
-						states.Running,
+						TypeMeta:    typeMeta,
+						ObjectMeta:  metav1.ObjectMeta{Name: "crdkind31"},
+						SpecState:   states.Running,
+						StatusState: states.Running,
 					},
 				},
 			},
@@ -128,10 +128,10 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 			crList: fake.CustomResourceListImpl{
 				Items: []fake.CustomResourceImpl{
 					{
-						typeMeta,
-						metav1.ObjectMeta{Name: "crdkind11"},
-						states.Running,
-						states.Running,
+						TypeMeta:    typeMeta,
+						ObjectMeta:  metav1.ObjectMeta{Name: "crdkind11"},
+						SpecState:   states.Running,
+						StatusState: states.Running,
 					},
 				},
 			},
@@ -169,10 +169,10 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 			crList: fake.CustomResourceListImpl{
 				Items: []fake.CustomResourceImpl{
 					{
-						typeMeta,
-						metav1.ObjectMeta{Name: "crdkind11"},
-						states.Running,
-						states.Running,
+						TypeMeta:    typeMeta,
+						ObjectMeta:  metav1.ObjectMeta{Name: "crdkind11"},
+						SpecState:   states.Running,
+						StatusState: states.Running,
 					},
 				},
 			},
@@ -203,10 +203,10 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 			crList: fake.CustomResourceListImpl{
 				Items: []fake.CustomResourceImpl{
 					{
-						typeMeta,
-						metav1.ObjectMeta{Name: "crdkind11"},
-						states.Running,
-						states.Running,
+						TypeMeta:    typeMeta,
+						ObjectMeta:  metav1.ObjectMeta{Name: "crdkind11"},
+						SpecState:   states.Running,
+						StatusState: states.Running,
 					},
 				},
 			},
@@ -249,10 +249,10 @@ func TestGroupSubresourcesByCustomResource(t *testing.T) {
 			crList: fake.CustomResourceListImpl{
 				Items: []fake.CustomResourceImpl{
 					{
-						typeMeta,
-						metav1.ObjectMeta{Name: "crdkind12"},
-						states.Running,
-						states.Running,
+						TypeMeta:    typeMeta,
+						ObjectMeta:  metav1.ObjectMeta{Name: "crdkind12"},
+						SpecState:   states.Running,
+						StatusState: states.Running,
 					},
 				},
 			},
