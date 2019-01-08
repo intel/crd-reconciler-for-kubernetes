@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2018 Intel Corporation
+// Copyright (c) 2019 Intel Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -73,7 +73,15 @@ func (c *SubresourceClient) Delete(namespace, name string) (e error) {
 }
 
 // Update updates a fake resource.Client
-func (c *SubresourceClient) Update(namespace string, name string, data []byte) (e error) {
+func (c *SubresourceClient) Update(namespace string, name string, templateValues interface{}) (e error) {
+	if c.Error != "" {
+		e = fmt.Errorf(c.Error)
+	}
+	return
+}
+
+// Patch patches a fake resource.Client
+func (c *SubresourceClient) Patch(namespace string, name string, data []byte) (e error) {
 	if c.Error != "" {
 		e = fmt.Errorf(c.Error)
 	}

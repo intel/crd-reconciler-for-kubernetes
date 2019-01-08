@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2018 Intel Corporation
+// Copyright (c) 2019 Intel Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,7 +35,9 @@ type Client interface {
 	// Delete deletes the object.
 	Delete(namespace string, name string) error
 	// Update updates the object.
-	Update(namespace string, name string, data []byte) error
+	Update(namespace string, name string, templateValues interface{}) error
+	// Patch updates the object using JSON patch.
+	Patch(namespace string, name string, data []byte) error
 	// Get retrieves the object.
 	Get(namespace, name string) (runtime.Object, error)
 	// List lists objects based on group, version and kind.

@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2018 Intel Corporation
+// Copyright (c) 2019 Intel Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -96,7 +96,33 @@ func (c *serviceClient) Delete(namespace, name string) error {
 	return request.Do().Error()
 }
 
-func (c *serviceClient) Update(namespace string, name string, data []byte) error {
+func (c *serviceClient) Update(namespace string, name string, templateValues interface{}) error {
+	resourceBody, err := c.Reify(templateValues)
+	if err != nil {
+		return err
+	}
+
+	request := c.restClient.Put().
+		Namespace(namespace).
+		Resource(c.resourcePluralForm).
+		Name(name).
+		Body(resourceBody)
+
+	glog.Infof("[DEBUG] update resource URL: %s", request.URL())
+
+	var statusCode int
+	err = request.Do().StatusCode(&statusCode).Error()
+
+	if err != nil {
+		return err
+	}
+	if statusCode != http.StatusOK && statusCode != http.StatusCreated {
+		return fmt.Errorf("unexpected status code (%d)", statusCode)
+	}
+	return nil
+}
+
+func (c *serviceClient) Patch(namespace string, name string, data []byte) error {
 
 	request := c.restClient.Patch(types.JSONPatchType).
 		Resource(c.resourcePluralForm).
@@ -104,7 +130,7 @@ func (c *serviceClient) Update(namespace string, name string, data []byte) error
 		Name(name).
 		Body(data)
 
-	glog.Infof("[DEBUG] update resource URL: %s", request.URL())
+	glog.Infof("[DEBUG] patch resource URL: %s", request.URL())
 
 	return request.Do().Error()
 }

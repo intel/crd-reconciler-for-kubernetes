@@ -36,24 +36,24 @@ import (
 	"github.com/intel/crd-reconciler-for-kubernetes/pkg/states"
 )
 
-type podClient struct {
+type configMapClient struct {
 	globalTemplateValues GlobalTemplateValues
 	restClient           rest.Interface
 	resourcePluralForm   string
 	templateFileName     string
 }
 
-// NewPodClient returns a new pod client.
-func NewPodClient(globalTemplateValues GlobalTemplateValues, clientSet *kubernetes.Clientset, templateFileName string) Client {
-	return &podClient{
+// configMapClient returns a new pod client.
+func NewConfigMapClient(globalTemplateValues GlobalTemplateValues, clientSet *kubernetes.Clientset, templateFileName string) Client {
+	return &configMapClient{
 		globalTemplateValues: globalTemplateValues,
 		restClient:           clientSet.CoreV1().RESTClient(),
-		resourcePluralForm:   "pods",
+		resourcePluralForm:   "configmaps",
 		templateFileName:     templateFileName,
 	}
 }
 
-func (c *podClient) Reify(templateValues interface{}) ([]byte, error) {
+func (c *configMapClient) Reify(templateValues interface{}) ([]byte, error) {
 	result, err := reify.Reify(c.templateFileName, templateValues, c.globalTemplateValues)
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func (c *podClient) Reify(templateValues interface{}) ([]byte, error) {
 	return result, nil
 }
 
-func (c *podClient) Create(namespace string, templateValues interface{}) error {
+func (c *configMapClient) Create(namespace string, templateValues interface{}) error {
 	resourceBody, err := c.Reify(templateValues)
 	if err != nil {
 		return err
@@ -86,7 +86,7 @@ func (c *podClient) Create(namespace string, templateValues interface{}) error {
 	return nil
 }
 
-func (c *podClient) Delete(namespace, name string) error {
+func (c *configMapClient) Delete(namespace, name string) error {
 	request := c.restClient.Delete().
 		Namespace(namespace).
 		Resource(c.resourcePluralForm).
@@ -97,7 +97,7 @@ func (c *podClient) Delete(namespace, name string) error {
 	return request.Do().Error()
 }
 
-func (c *podClient) Update(namespace string, name string, templateValues interface{}) error {
+func (c *configMapClient) Update(namespace string, name string, templateValues interface{}) error {
 	resourceBody, err := c.Reify(templateValues)
 	if err != nil {
 		return err
@@ -123,7 +123,7 @@ func (c *podClient) Update(namespace string, name string, templateValues interfa
 	return nil
 }
 
-func (c *podClient) Patch(namespace string, name string, data []byte) error {
+func (c *configMapClient) Patch(namespace string, name string, data []byte) error {
 
 	request := c.restClient.Patch(types.JSONPatchType).
 		Resource(c.resourcePluralForm).
@@ -136,7 +136,7 @@ func (c *podClient) Patch(namespace string, name string, data []byte) error {
 	return request.Do().Error()
 }
 
-func (c *podClient) Get(namespace, name string) (result runtime.Object, err error) {
+func (c *configMapClient) Get(namespace, name string) (result runtime.Object, err error) {
 	result = &corev1.Pod{}
 	opts := metav1.GetOptions{}
 	err = c.restClient.Get().
@@ -150,7 +150,7 @@ func (c *podClient) Get(namespace, name string) (result runtime.Object, err erro
 	return result, err
 }
 
-func (c *podClient) List(namespace string, labels map[string]string) (result []metav1.Object, err error) {
+func (c *configMapClient) List(namespace string, labels map[string]string) (result []metav1.Object, err error) {
 	list := &corev1.PodList{}
 
 	opts := metav1.ListOptions{}
@@ -180,15 +180,15 @@ func (c *podClient) List(namespace string, labels map[string]string) (result []m
 	return
 }
 
-func (c *podClient) IsEphemeral() bool {
+func (c *configMapClient) IsEphemeral() bool {
 	return true
 }
 
-func (c *podClient) Plural() string {
+func (c *configMapClient) Plural() string {
 	return c.resourcePluralForm
 }
 
-func (c *podClient) IsFailed(namespace string, name string) bool {
+func (c *configMapClient) IsFailed(namespace string, name string) bool {
 	p, err := c.Get(namespace, name)
 	if err != nil {
 		return false
@@ -196,7 +196,7 @@ func (c *podClient) IsFailed(namespace string, name string) bool {
 	return c.isFailed(p)
 }
 
-func (c *podClient) isFailed(obj runtime.Object) bool {
+func (c *configMapClient) isFailed(obj runtime.Object) bool {
 	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		panic("object was not a *corev1.Pod")
@@ -216,7 +216,7 @@ func (c *podClient) isFailed(obj runtime.Object) bool {
 	return false
 }
 
-func (c *podClient) GetStatusState(obj runtime.Object) states.State {
+func (c *configMapClient) GetStatusState(obj runtime.Object) states.State {
 	if c.isFailed(obj) {
 		return states.Failed
 	}
